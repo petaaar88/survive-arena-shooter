@@ -154,11 +154,13 @@
     <ClCompile Include="src/main.cpp" />
     <ClCompile Include="src/Player.cpp" />
     <ClCompile Include="src/Game.cpp" />
+    <ClCompile Include="src/Enemy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/InputHandler.h" />
     <ClInclude Include="src/Player.h" />
     <ClInclude Include="src/Game.h" />
+    <ClInclude Include="src/Enemy.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />

@@ -2,6 +2,7 @@
 #include <irrlicht.h>
 #include "InputHandler.h"
 #include "Player.h"
+#include "Enemy.h"
 
 using namespace irr;
 using namespace core;
@@ -37,6 +38,7 @@ private:
 
 	// Game objects
 	Player*            m_player;
+	Enemy*             m_enemy;
 	ICameraSceneNode*  m_camera;
 	ISceneNode*        m_ground;
 

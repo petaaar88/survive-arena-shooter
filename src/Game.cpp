@@ -11,6 +11,7 @@ Game::Game()
 	, m_smgr(nullptr)
 	, m_gui(nullptr)
 	, m_player(nullptr)
+	, m_enemy(nullptr)
 	, m_camera(nullptr)
 	, m_ground(nullptr)
 	, m_ammoText(nullptr)
@@ -26,6 +27,9 @@ Game::Game()
 
 Game::~Game()
 {
+	delete m_enemy;
+	m_enemy = nullptr;
+
 	delete m_player;
 	m_player = nullptr;
 
@@ -52,6 +56,7 @@ void Game::init()
 	setupHUD();
 
 	m_player = new Player(m_smgr, m_driver);
+	m_enemy = new Enemy(m_smgr, m_driver, vector3df(200, 0, 200));
 
 	m_lastTime = m_device->getTimer()->getTime();
 
@@ -168,6 +173,10 @@ void Game::updatePlaying(f32 deltaTime)
 
 	// Update player
 	m_player->update(deltaTime, m_input, m_cameraYaw);
+
+	// Update enemy
+	if (m_enemy)
+		m_enemy->update(deltaTime, m_player->getPosition());
 
 	// Check for death → transition to GAMEOVER
 	if (m_player->isDead())
