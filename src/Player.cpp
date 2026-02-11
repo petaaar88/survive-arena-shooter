@@ -161,29 +161,37 @@ void Player::takeDamage(s32 amount)
 
 void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 {
-	bool movementInput =
-		input.isKeyDown(KEY_KEY_W) ||
-		input.isKeyDown(KEY_KEY_S) ||
-		input.isKeyDown(KEY_KEY_A) ||
-		input.isKeyDown(KEY_KEY_D);
+	f32 yawRad = cameraYaw * core::DEGTORAD;
 
-	if (movementInput || input.isRightMouseDown())
-		m_rotationY = cameraYaw;
-
-	f32 yawRad = m_rotationY * core::DEGTORAD;
-	m_forward = vector3df(sinf(yawRad), 0, cosf(yawRad));
-	m_right = vector3df(cosf(yawRad), 0, -sinf(yawRad));
+	vector3df camForward(sinf(yawRad), 0, cosf(yawRad));
+	vector3df camRight(cosf(yawRad), 0, -sinf(yawRad));
 
 	vector3df moveDir(0, 0, 0);
 	bool moving = false;
 
-	if (input.isKeyDown(KEY_KEY_W)) { moveDir += m_forward; moving = true; }
-	if (input.isKeyDown(KEY_KEY_S)) { moveDir -= m_forward; moving = true; }
-	if (input.isKeyDown(KEY_KEY_A)) { moveDir -= m_right;   moving = true; }
-	if (input.isKeyDown(KEY_KEY_D)) { moveDir += m_right;   moving = true; }
+	if (input.isKeyDown(KEY_KEY_W)) { moveDir += camForward; moving = true; }
+	if (input.isKeyDown(KEY_KEY_S)) { moveDir -= camForward; moving = true; }
+	if (input.isKeyDown(KEY_KEY_A)) { moveDir -= camRight;   moving = true; }
+	if (input.isKeyDown(KEY_KEY_D)) { moveDir += camRight;   moving = true; }
 
 	if (moveDir.getLength() > 0)
 		moveDir.normalize();
+
+	// **Rotacija igrača**
+	if (input.isRightMouseDown())
+	{
+		// Drži desni klik → uvek okrenut ka kameri
+		m_rotationY = cameraYaw;
+		m_forward = camForward; // forward u smeru kamere
+	}
+	else if (moveDir.getLength() > 0)
+	{
+		// Normalno okretanje po smeru kretanja
+		m_rotationY = atan2f(moveDir.X, moveDir.Z) * core::RADTODEG;
+		m_forward = moveDir; // forward = smer kretanja
+	}
+
+	m_right = vector3df(-m_forward.Z, 0, m_forward.X); // pravu desno vektor
 
 	if (m_isShooting)
 	{
@@ -197,6 +205,7 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 
 	updateAnimation(moving);
 }
+
 
 void Player::handleShooting(f32 deltaTime, InputHandler& input)
 {

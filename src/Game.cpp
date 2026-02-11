@@ -62,6 +62,12 @@ void Game::init()
 	m_smgr = m_device->getSceneManager();
 	m_gui = m_device->getGUIEnvironment();
 
+	IGUISkin* skin = m_gui->getSkin();
+	IGUIFont* font = m_gui->getFont("assets/textures/fonts/bigfont.png");
+	if (font)
+		skin->setFont(font);
+
+
 	// Create physics world before scene objects
 	m_physics = new Physics();
 
@@ -113,15 +119,15 @@ void Game::setupHUD()
 	ITexture* bulletHudGui = m_driver->getTexture("assets/textures/hud/bullet_icon.png");
 	if (bulletHudGui)
 	{
-		IGUIImage* img = m_gui->addImage(bulletHudGui, position2d<s32>(710, 440));
+		IGUIImage* img = m_gui->addImage(bulletHudGui, position2d<s32>(m_driver->getScreenSize().Width - (m_driver->getScreenSize().Width / 7), m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 8)));
 		img->setScaleImage(true);
-		img->setMaxSize(dimension2du(52, 52));
+		img->setMaxSize(dimension2du(72,72));
 	}
 
 	// Ammo counter
 	m_ammoText = m_gui->addStaticText(
 		L"5",
-		rect<s32>(765, 448, 800, 488),
+		rect<s32>(m_driver->getScreenSize().Width - (m_driver->getScreenSize().Width / 11), m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 10), m_driver->getScreenSize().Width - (m_driver->getScreenSize().Width / 10) + 200, 900),
 		false, false, 0, -1, false
 	);
 	m_ammoText->setOverrideColor(SColor(255, 255, 255, 255));
@@ -129,10 +135,10 @@ void Game::setupHUD()
 	// Health display
 	m_healthText = m_gui->addStaticText(
 		L"HP: 100",
-		rect<s32>(10, 10, 200, 40),
+		rect<s32>(m_driver->getScreenSize().Width / 22, m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 10), 400, 900),
 		false, false, 0, -1, false
 	);
-	m_healthText->setOverrideColor(SColor(255, 255, 50, 50));
+	m_healthText->setOverrideColor(SColor(255, 255, 255, 255));
 
 	// Crosshair
 	ITexture* crosshairTex = m_driver->getTexture("assets/textures/hud/crosshair.png");
