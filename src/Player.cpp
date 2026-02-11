@@ -6,16 +6,17 @@ static const f32 GUN_FIRE_RATE = 0.8f;
 static const f32 ATTACK_ANIM_DURATION = 0.5f;
 static const f32 SHOOT_RANGE = 1000.0f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
-static const s32 PLAYER_AMMO_START = 5;
+static const s32 PLAYER_AMMO_START = 115;
 static const s32 PLAYER_HEALTH_START = 100;
 static const f32 WAVE_ANIM_DURATION = 0.5f;
 static const f32 PAIN_ANIM_DURATION = 0.4f;
 
-Player::Player(ISceneManager* smgr, IVideoDriver* driver)
-	: m_smgr(smgr)
+Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
+	: GameObject(nullptr, nullptr)
+	, m_smgr(smgr)
+	, m_physics(physics)
 	, m_playerNode(nullptr)
 	, m_weaponNode(nullptr)
-	, m_position(0, 0, 0)
 	, m_rotationY(0.0f)
 	, m_forward(0, 0, 1)
 	, m_right(1, 0, 0)
@@ -28,6 +29,8 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver)
 	, m_painTimer(0.0f)
 	, m_ammo(PLAYER_AMMO_START)
 	, m_health(PLAYER_HEALTH_START)
+	, m_lastHitObject(nullptr)
+	, m_debugRay{ vector3df(0,0,0), vector3df(0,0,0), false, 0.0f }
 {
 	// Load player model
 	IAnimatedMesh* playerMesh = smgr->getMesh("assets/models/player/tris.md2");
@@ -38,7 +41,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver)
 		{
 			m_playerNode->setMaterialTexture(0, driver->getTexture("assets/models/player/caleb.pcx"));
 			m_playerNode->setMaterialFlag(EMF_LIGHTING, false);
-			m_playerNode->setPosition(m_position);
+			m_playerNode->setPosition(vector3df(0, 0, 0));
 			m_playerNode->setMD2Animation(EMAT_STAND);
 		}
 	}
@@ -55,17 +58,44 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver)
 			m_weaponNode->setMD2Animation(EMAT_STAND);
 		}
 	}
+
+	// Create kinematic Bullet capsule
+	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
+	m_body = physics->createRigidBody(0.0f, capsule, vector3df(0, 0, 0));
+	m_body->setCollisionFlags(m_body->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+	m_body->setActivationState(DISABLE_DEACTIVATION);
+	m_body->setUserPointer(this);
+
+	m_node = m_playerNode;
 }
 
 Player::~Player()
 {
-	// Irrlicht scene manager owns the nodes and cleans them up on device->drop().
-	// Do not manually remove — the Player destructor runs after device->drop()
-	// on stack-allocated players, and the node is already freed by then.
+	// Irrlicht scene manager owns the nodes — cleaned up on device->drop()
+	// Physics destructor cleans up all bodies from world
 }
 
-void Player::update(f32 deltaTime, InputHandler& input, f32 cameraYaw)
+void Player::update(f32 deltaTime)
 {
+	// Sync physics → node + apply rotation
+	syncPhysicsToNode();
+
+	if (m_playerNode)
+		m_playerNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
+}
+
+void Player::handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw)
+{
+	m_lastHitObject = nullptr;
+
+	// Tick debug ray timer
+	if (m_debugRay.active)
+	{
+		m_debugRay.timer -= deltaTime;
+		if (m_debugRay.timer <= 0)
+			m_debugRay.active = false;
+	}
+
 	if (m_isDead)
 		return;
 
@@ -76,7 +106,6 @@ void Player::update(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		if (m_painTimer <= 0)
 		{
 			m_isInPain = false;
-			// Return to idle
 			if (m_playerNode)
 			{
 				m_playerNode->setMD2Animation(m_isMoving ? EMAT_RUN : EMAT_STAND);
@@ -86,25 +115,12 @@ void Player::update(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		}
 		else
 		{
-			// Still in pain — no movement or shooting
-			if (m_playerNode)
-			{
-				m_playerNode->setPosition(m_position);
-				m_playerNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
-			}
 			return;
 		}
 	}
 
 	handleMovement(deltaTime, input, cameraYaw);
 	handleShooting(deltaTime, input);
-
-	// Update node transform
-	if (m_playerNode)
-	{
-		m_playerNode->setPosition(m_position);
-		m_playerNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
-	}
 }
 
 void Player::takeDamage(s32 amount)
@@ -125,13 +141,11 @@ void Player::takeDamage(s32 amount)
 			m_playerNode->setLoopMode(false);
 		}
 
-		// Hide weapon
 		if (m_weaponNode)
 			m_weaponNode->setVisible(false);
 	}
 	else
 	{
-		// Play pain animation
 		m_isInPain = true;
 		m_isShooting = false;
 		m_painTimer = PAIN_ANIM_DURATION;
@@ -147,7 +161,6 @@ void Player::takeDamage(s32 amount)
 
 void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 {
-	// Snap player rotation to camera when moving or right-clicking
 	bool movementInput =
 		input.isKeyDown(KEY_KEY_W) ||
 		input.isKeyDown(KEY_KEY_S) ||
@@ -160,12 +173,10 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	if (!movementInput && input.consumeRightClick())
 		m_rotationY = cameraYaw;
 
-	// Calculate direction vectors from player facing
 	f32 yawRad = m_rotationY * core::DEGTORAD;
 	m_forward = vector3df(sinf(yawRad), 0, cosf(yawRad));
 	m_right = vector3df(cosf(yawRad), 0, -sinf(yawRad));
 
-	// Build movement direction
 	vector3df moveDir(0, 0, 0);
 	bool moving = false;
 
@@ -177,16 +188,16 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	if (moveDir.getLength() > 0)
 		moveDir.normalize();
 
-	// Stop movement while shooting
 	if (m_isShooting)
 	{
 		moveDir = vector3df(0, 0, 0);
 		moving = false;
 	}
 
-	m_position += moveDir * PLAYER_SPEED * deltaTime;
+	// Move by updating position and syncing to kinematic body
+	vector3df newPos = getPosition() + moveDir * PLAYER_SPEED * deltaTime;
+	setPosition(newPos);
 
-	// Update animation
 	updateAnimation(moving);
 }
 
@@ -195,14 +206,12 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 	m_shootCooldown -= deltaTime;
 	if (m_shootCooldown < 0) m_shootCooldown = 0;
 
-	// Tick attack animation timer
 	if (m_attackAnimTimer > 0)
 	{
 		m_attackAnimTimer -= deltaTime;
 		if (m_attackAnimTimer <= 0)
 		{
 			m_isShooting = false;
-			// Return to appropriate animation
 			if (m_playerNode)
 			{
 				m_playerNode->setMD2Animation(m_isMoving ? EMAT_RUN : EMAT_STAND);
@@ -212,12 +221,10 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 		}
 	}
 
-	// Fire
 	if (input.isLeftMouseDown() && m_shootCooldown <= 0)
 	{
 		if (m_ammo <= 0)
 		{
-			// No ammo — play WAVE animation
 			m_shootCooldown = WAVE_ANIM_DURATION;
 			m_attackAnimTimer = WAVE_ANIM_DURATION;
 			m_isShooting = true;
@@ -230,7 +237,6 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 		}
 		else
 		{
-			// Shoot
 			m_ammo--;
 			m_shootCooldown = GUN_FIRE_RATE;
 			m_attackAnimTimer = ATTACK_ANIM_DURATION;
@@ -242,21 +248,17 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 				if (m_weaponNode) m_weaponNode->setMD2Animation(EMAT_ATTACK);
 			}
 
-			// Raycast from chest height along forward direction
-			vector3df rayStart = m_position + vector3df(0, 30, 0);
+			// Bullet raycast from chest height along forward direction
+			vector3df rayStart = getPosition() + vector3df(0, 30, 0);
 			vector3df rayEnd = rayStart + m_forward * SHOOT_RANGE;
 
-			line3d<f32> ray(rayStart, rayEnd);
-			ISceneCollisionManager* collMan = m_smgr->getSceneCollisionManager();
+			m_debugRay = { rayStart, rayEnd, true, ATTACK_ANIM_DURATION };
 
-			vector3df hitPoint;
-			triangle3df hitTriangle;
-			ISceneNode* hitNode = collMan->getSceneNodeAndCollisionPointFromRay(
-				ray, hitPoint, hitTriangle, 0, 0);
+			Physics::RayResult result = m_physics->rayTest(rayStart, rayEnd);
 
-			if (hitNode && hitNode != m_playerNode)
+			if (result.hasHit && result.hitObject != m_body)
 			{
-				// Future: deal damage to enemy
+				m_lastHitObject = result.hitObject;
 			}
 		}
 	}

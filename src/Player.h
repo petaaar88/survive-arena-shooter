@@ -1,29 +1,34 @@
 #pragma once
 #include <irrlicht.h>
+#include "GameObject.h"
 #include "InputHandler.h"
+#include "Physics.h"
 
 using namespace irr;
 using namespace core;
 using namespace scene;
 using namespace video;
 
-class Player
+class Player : public GameObject
 {
 public:
-	Player(ISceneManager* smgr, IVideoDriver* driver);
+	Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics);
 	~Player();
 
-	void update(f32 deltaTime, InputHandler& input, f32 cameraYaw);
+	void update(f32 deltaTime) override;
+	void handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw);
 
 	void takeDamage(s32 amount);
 
-	vector3df getPosition() const { return m_position; }
 	f32 getRotationY() const { return m_rotationY; }
 	bool isShooting() const { return m_isShooting; }
 	bool isDead() const { return m_isDead; }
 	s32 getAmmo() const { return m_ammo; }
 	s32 getHealth() const { return m_health; }
-	ISceneNode* getNode() const { return m_playerNode; }
+	btCollisionObject* getLastHitObject() const { return m_lastHitObject; }
+
+	struct DebugRay { vector3df start, end; bool active; f32 timer; };
+	const DebugRay& getDebugRay() const { return m_debugRay; }
 
 private:
 	void handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw);
@@ -31,10 +36,10 @@ private:
 	void updateAnimation(bool moving);
 
 	ISceneManager* m_smgr;
+	Physics* m_physics;
 	IAnimatedMeshSceneNode* m_playerNode;
 	IAnimatedMeshSceneNode* m_weaponNode;
 
-	vector3df m_position;
 	f32 m_rotationY;
 	vector3df m_forward;
 	vector3df m_right;
@@ -48,4 +53,6 @@ private:
 	f32 m_painTimer;
 	s32 m_ammo;
 	s32 m_health;
+	btCollisionObject* m_lastHitObject;
+	DebugRay m_debugRay;
 };

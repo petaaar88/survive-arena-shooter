@@ -1,8 +1,10 @@
 #pragma once
 #include <irrlicht.h>
 #include "InputHandler.h"
+#include "Physics.h"
 #include "Player.h"
 #include "Enemy.h"
+#include "DebugDrawer.h"
 
 using namespace irr;
 using namespace core;
@@ -35,6 +37,12 @@ private:
 	ISceneManager*     m_smgr;
 	IGUIEnvironment*   m_gui;
 	InputHandler       m_input;
+
+	// Physics
+	Physics*           m_physics;
+	DebugDrawer*       m_debugDrawer;
+	btRigidBody*       m_groundBody;
+	bool               m_showDebug;
 
 	// Game objects
 	Player*            m_player;
