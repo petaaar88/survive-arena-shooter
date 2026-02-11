@@ -177,9 +177,12 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	if (moveDir.getLength() > 0)
 		moveDir.normalize();
 
+	float aimingSpeedDecrement = 0;
+
 	// **Rotacija igrača**
 	if (input.isRightMouseDown())
 	{
+		aimingSpeedDecrement = 70.0f;
 		// Drži desni klik → uvek okrenut ka kameri
 		m_rotationY = cameraYaw;
 		m_forward = camForward; // forward u smeru kamere
@@ -200,7 +203,7 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	}
 
 	// Move by updating position and syncing to kinematic body
-	vector3df newPos = getPosition() + moveDir * PLAYER_SPEED * deltaTime;
+	vector3df newPos = getPosition() + moveDir * (PLAYER_SPEED - aimingSpeedDecrement) * deltaTime;
 	setPosition(newPos);
 
 	updateAnimation(moving);
