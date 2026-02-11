@@ -6,7 +6,7 @@ using namespace irr;
 class InputHandler : public IEventReceiver
 {
 public:
-	InputHandler() : m_leftMouseDown(false), m_rightMousePressed(false)
+	InputHandler() : m_leftMouseDown(false), m_rightMouseDown(false), m_rightMousePressed(false)
 	{
 		for (u32 i = 0; i < KEY_KEY_CODES_COUNT; ++i)
 			m_keys[i] = false;
@@ -25,13 +25,19 @@ public:
 			else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP)
 				m_leftMouseDown = false;
 			else if (event.MouseInput.Event == EMIE_RMOUSE_PRESSED_DOWN)
+			{
+				m_rightMouseDown = true;
 				m_rightMousePressed = true;
+			}
+			else if (event.MouseInput.Event == EMIE_RMOUSE_LEFT_UP)
+				m_rightMouseDown = false;
 		}
 		return false;
 	}
 
 	bool isKeyDown(EKEY_CODE key) const { return m_keys[key]; }
 	bool isLeftMouseDown() const { return m_leftMouseDown; }
+	bool isRightMouseDown() const { return m_rightMouseDown; }
 
 	// Returns true once per key press (consumes the state)
 	bool consumeKeyPress(EKEY_CODE key)
@@ -57,5 +63,6 @@ public:
 private:
 	bool m_keys[KEY_KEY_CODES_COUNT];
 	bool m_leftMouseDown;
+	bool m_rightMouseDown;
 	bool m_rightMousePressed;
 };

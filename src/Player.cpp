@@ -167,10 +167,7 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		input.isKeyDown(KEY_KEY_A) ||
 		input.isKeyDown(KEY_KEY_D);
 
-	if (movementInput)
-		m_rotationY = cameraYaw;
-
-	if (!movementInput && input.consumeRightClick())
+	if (movementInput || input.isRightMouseDown())
 		m_rotationY = cameraYaw;
 
 	f32 yawRad = m_rotationY * core::DEGTORAD;
