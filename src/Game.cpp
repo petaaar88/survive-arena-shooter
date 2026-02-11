@@ -133,6 +133,22 @@ void Game::setupHUD()
 		false, false, 0, -1, false
 	);
 	m_healthText->setOverrideColor(SColor(255, 255, 50, 50));
+
+	// Crosshair
+	ITexture* crosshairTex = m_driver->getTexture("assets/textures/hud/crosshair.png");
+	if (crosshairTex)
+	{
+		dimension2d<u32> screenSize = m_driver->getScreenSize();
+		s32 screenCX = screenSize.Width / 2;
+		s32 screenCY = screenSize.Height / 2;
+		s32 crosshairSize = 32;
+		s32 cx = screenCX - crosshairSize / 2;
+		s32 cy = screenCY - crosshairSize / 2;
+		IGUIImage* crosshair = m_gui->addImage(crosshairTex, position2d<s32>(cx, cy));
+		crosshair->setScaleImage(true);
+		crosshair->setMaxSize(dimension2du(crosshairSize, crosshairSize));
+	}
+	
 }
 
 void Game::run()
