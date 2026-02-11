@@ -60,4 +60,7 @@ private:
 	u32                m_lastTime;
 	s32                m_centerX;
 	s32                m_centerY;
+
+	IGUIImage* crosshair = nullptr;
+	
 };

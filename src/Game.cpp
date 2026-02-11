@@ -2,8 +2,8 @@
 #include <cmath>
 
 static const f32 MOUSE_SENSITIVITY = 0.2f;
-static const f32 CAMERA_DISTANCE = 100.0f;
-static const f32 CAMERA_HEIGHT = 80.0f;
+static const f32 CAMERA_DISTANCE = 120.0f;
+static const f32 CAMERA_HEIGHT = 30.0f;
 
 Game::Game()
 	: m_device(nullptr)
@@ -49,7 +49,7 @@ Game::~Game()
 
 void Game::init()
 {
-	m_device = createDevice(video::EDT_OPENGL, dimension2d<u32>(800, 600), 16,
+	m_device = createDevice(video::EDT_OPENGL, dimension2d<u32>(1300, 780), 16,
 		false, false, false, &m_input);
 
 	if (!m_device)
@@ -144,7 +144,7 @@ void Game::setupHUD()
 		s32 crosshairSize = 32;
 		s32 cx = screenCX - crosshairSize / 2;
 		s32 cy = screenCY - crosshairSize / 2;
-		IGUIImage* crosshair = m_gui->addImage(crosshairTex, position2d<s32>(cx, cy));
+		crosshair = m_gui->addImage(crosshairTex, position2d<s32>(cx, cy));
 		crosshair->setScaleImage(true);
 		crosshair->setMaxSize(dimension2du(crosshairSize, crosshairSize));
 	}
@@ -258,6 +258,13 @@ void Game::updatePlaying(f32 deltaTime)
 	{
 		m_state = GameState::GAMEOVER;
 		return;
+	}
+
+	if (crosshair)
+	{
+		bool showCrosshair = m_input.isRightMouseDown();
+
+		crosshair->setVisible(showCrosshair);
 	}
 
 	updateCamera();
