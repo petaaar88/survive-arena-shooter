@@ -33,6 +33,17 @@ public:
 	bool isKeyDown(EKEY_CODE key) const { return m_keys[key]; }
 	bool isLeftMouseDown() const { return m_leftMouseDown; }
 
+	// Returns true once per key press (consumes the state)
+	bool consumeKeyPress(EKEY_CODE key)
+	{
+		if (m_keys[key])
+		{
+			m_keys[key] = false;
+			return true;
+		}
+		return false;
+	}
+
 	bool consumeRightClick()
 	{
 		if (m_rightMousePressed)
