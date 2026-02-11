@@ -152,6 +152,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src/main.cpp" />
+    <ClCompile Include="src/Player.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src/InputHandler.h" />
+    <ClInclude Include="src/Player.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />
