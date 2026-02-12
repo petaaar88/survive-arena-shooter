@@ -11,6 +11,13 @@ static const s32 PLAYER_HEALTH_START = 100;
 static const f32 WAVE_ANIM_DURATION = 0.5f;
 static const f32 PAIN_ANIM_DURATION = 0.4f;
 
+// Audio volumes (0.0 = silent, 1.0 = full)
+static const f32 SFX_VOLUME_SHOOT = 0.5f;
+static const f32 SFX_VOLUME_RUN = 0.3f;
+static const f32 SFX_VOLUME_PAIN = 0.6f;
+static const f32 SFX_VOLUME_DEATH = 0.7f;
+static const f32 SFX_VOLUME_PICKUP = 0.5f;
+
 Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	: GameObject(nullptr, nullptr)
 	, m_smgr(smgr)
@@ -31,7 +38,10 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	, m_health(PLAYER_HEALTH_START)
 	, m_lastHitObject(nullptr)
 	, m_debugRay{ vector3df(0,0,0), vector3df(0,0,0), false, 0.0f }
+	, m_soundEngine(nullptr)
+	, m_runSound(nullptr)
 {
+	m_soundEngine = irrklang::createIrrKlangDevice();
 	// Load player model
 	IAnimatedMesh* playerMesh = smgr->getMesh("assets/models/player/tris.md2");
 	if (playerMesh)
@@ -71,8 +81,9 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 
 Player::~Player()
 {
-	// Irrlicht scene manager owns the nodes — cleaned up on device->drop()
-	// Physics destructor cleans up all bodies from world
+	stopRunSound();
+	if (m_soundEngine)
+		m_soundEngine->drop();
 }
 
 void Player::update(f32 deltaTime)
@@ -134,6 +145,12 @@ void Player::takeDamage(s32 amount)
 	{
 		m_health = 0;
 		m_isDead = true;
+		stopRunSound();
+		if (m_soundEngine)
+		{
+			irrklang::ISound* s = m_soundEngine->play2D("assets/models/player/death2.wav", false, true, true);
+			if (s) { s->setVolume(SFX_VOLUME_DEATH); s->setIsPaused(false); s->drop(); }
+		}
 
 		if (m_playerNode)
 		{
@@ -149,6 +166,11 @@ void Player::takeDamage(s32 amount)
 		m_isInPain = true;
 		m_isShooting = false;
 		m_painTimer = PAIN_ANIM_DURATION;
+		if (m_soundEngine)
+		{
+			irrklang::ISound* s = m_soundEngine->play2D("assets/models/player/PAIN50_1.WAV", false, true, true);
+			if (s) { s->setVolume(SFX_VOLUME_PAIN); s->setIsPaused(false); s->drop(); }
+		}
 
 		if (m_playerNode)
 		{
@@ -162,6 +184,11 @@ void Player::takeDamage(s32 amount)
 void Player::addAmmo(s32 amount)
 {
 	m_ammo += amount;
+	if (m_soundEngine)
+	{
+		irrklang::ISound* s = m_soundEngine->play2D("assets/audio/player/ammo_pickup.mp3", false, true, true);
+		if (s) { s->setVolume(SFX_VOLUME_PICKUP); s->setIsPaused(false); s->drop(); }
+	}
 }
 
 void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
@@ -255,6 +282,11 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 			m_shootCooldown = GUN_FIRE_RATE;
 			m_attackAnimTimer = ATTACK_ANIM_DURATION;
 			m_isShooting = true;
+			if (m_soundEngine)
+			{
+				irrklang::ISound* s = m_soundEngine->play2D("assets/audio/player/shotgun.mp3", false, true, true);
+				if (s) { s->setVolume(SFX_VOLUME_SHOOT); s->setIsPaused(false); s->drop(); }
+			}
 
 			if (m_playerNode)
 			{
@@ -290,12 +322,28 @@ void Player::updateAnimation(bool moving)
 	{
 		if (m_playerNode) m_playerNode->setMD2Animation(EMAT_RUN);
 		if (m_weaponNode) m_weaponNode->setMD2Animation(EMAT_RUN);
+		if (m_soundEngine)
+		{
+			m_runSound = m_soundEngine->play2D("assets/audio/player/running.mp3", true, true, true);
+			if (m_runSound) { m_runSound->setVolume(SFX_VOLUME_RUN); m_runSound->setIsPaused(false); }
+		}
 	}
 	else if (!moving && m_isMoving)
 	{
 		if (m_playerNode) m_playerNode->setMD2Animation(EMAT_STAND);
 		if (m_weaponNode) m_weaponNode->setMD2Animation(EMAT_STAND);
+		stopRunSound();
 	}
 
 	m_isMoving = moving;
+}
+
+void Player::stopRunSound()
+{
+	if (m_runSound)
+	{
+		m_runSound->stop();
+		m_runSound->drop();
+		m_runSound = nullptr;
+	}
 }

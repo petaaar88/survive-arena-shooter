@@ -1,5 +1,6 @@
 #pragma once
 #include <irrlicht.h>
+#include <irrKlang.h>
 #include "GameObject.h"
 #include "InputHandler.h"
 #include "Physics.h"
@@ -56,4 +57,9 @@ private:
 	s32 m_health;
 	btCollisionObject* m_lastHitObject;
 	DebugRay m_debugRay;
+
+	// Audio
+	irrklang::ISoundEngine* m_soundEngine;
+	irrklang::ISound* m_runSound;
+	void stopRunSound();
 };
