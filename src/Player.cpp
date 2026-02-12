@@ -69,10 +69,11 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		}
 	}
 
-	// Create kinematic Bullet capsule
+	// Create dynamic Bullet capsule (collides with obstacles)
 	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
-	m_body = physics->createRigidBody(0.0f, capsule, vector3df(0, 0, 0));
-	m_body->setCollisionFlags(m_body->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+	m_body = physics->createRigidBody(80.0f, capsule, vector3df(0, 0, 0));
+	m_body->setAngularFactor(btVector3(0, 0, 0));
+	m_body->setGravity(btVector3(0, 0, 0));
 	m_body->setActivationState(DISABLE_DEACTIVATION);
 	m_body->setUserPointer(this);
 
@@ -234,9 +235,13 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		moving = false;
 	}
 
-	// Move by updating position and syncing to kinematic body
-	vector3df newPos = getPosition() + moveDir * (PLAYER_SPEED - aimingSpeedDecrement) * deltaTime;
-	setPosition(newPos);
+	// Move via velocity so Bullet handles collisions with obstacles
+	f32 speed = PLAYER_SPEED - aimingSpeedDecrement;
+	if (m_body)
+	{
+		btVector3 velocity(moveDir.X * speed, 0, moveDir.Z * speed);
+		m_body->setLinearVelocity(velocity);
+	}
 
 	updateAnimation(moving);
 }
@@ -295,7 +300,7 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 			}
 
 			// Bullet raycast from chest height along forward direction
-			vector3df rayStart = getPosition() + vector3df(0, 30, 0);
+			vector3df rayStart = getPosition() + vector3df(0, 15, 0);
 			vector3df rayEnd = rayStart + m_forward * SHOOT_RANGE;
 
 			m_debugRay = { rayStart, rayEnd, true, ATTACK_ANIM_DURATION };

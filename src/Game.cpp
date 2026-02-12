@@ -314,16 +314,25 @@ void Game::updatePlaying(f32 deltaTime)
 	}
 	if (!anyAttacking)
 	{
+		Enemy* closest = nullptr;
+		f32 closestDist = 999999.0f;
+		vector3df playerPos = m_player->getPosition();
 		for (Enemy* enemy : m_enemies)
 		{
 			if (!enemy->isDead()
 				&& (enemy->getState() == EnemyState::WAIT_ATTACK
 					|| enemy->getState() == EnemyState::CHASE))
 			{
-				enemy->setAttackAllowed(true);
-				break;
+				f32 dist = enemy->getPosition().getDistanceFrom(playerPos);
+				if (dist < closestDist)
+				{
+					closestDist = dist;
+					closest = enemy;
+				}
 			}
 		}
+		if (closest)
+			closest->setAttackAllowed(true);
 	}
 
 	// Update enemy AI (sets velocities)
@@ -379,7 +388,24 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// Check for death → transition to GAMEOVER
+	// Remove dead enemies after death animation finishes
+	for (auto it = m_enemies.begin(); it != m_enemies.end(); )
+	{
+		if ((*it)->shouldRemove())
+		{
+			delete *it;
+			it = m_enemies.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+
+	updateCamera();
+	updateHUD();
+
+	// Check for death → transition to GAMEOVER (after HUD update so HP shows 0)
 	if (m_player->isDead())
 	{
 		m_state = GameState::GAMEOVER;
@@ -392,9 +418,6 @@ void Game::updatePlaying(f32 deltaTime)
 
 		crosshair->setVisible(showCrosshair);
 	}
-
-	updateCamera();
-	updateHUD();
 }
 
 void Game::updateGameOver(f32 deltaTime)
