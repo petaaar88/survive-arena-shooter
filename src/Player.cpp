@@ -159,6 +159,11 @@ void Player::takeDamage(s32 amount)
 	}
 }
 
+void Player::addAmmo(s32 amount)
+{
+	m_ammo += amount;
+}
+
 void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 {
 	f32 yawRad = cameraYaw * core::DEGTORAD;

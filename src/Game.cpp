@@ -16,6 +16,7 @@ Game::Game()
 	, m_showDebug(false)
 	, m_player(nullptr)
 	, m_enemy(nullptr)
+	, m_ammoPickup(nullptr)
 	, m_camera(nullptr)
 	, m_ground(nullptr)
 	, m_ammoText(nullptr)
@@ -31,6 +32,9 @@ Game::Game()
 
 Game::~Game()
 {
+	delete m_ammoPickup;
+	m_ammoPickup = nullptr;
+
 	delete m_enemy;
 	m_enemy = nullptr;
 
@@ -80,6 +84,7 @@ void Game::init()
 
 	m_player = new Player(m_smgr, m_driver, m_physics);
 	m_enemy = new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200));
+	m_ammoPickup = new Pickup(m_smgr, m_driver, m_physics, vector3df(-100, -25, -100), PickupType::AMMO);
 
 	m_lastTime = m_device->getTimer()->getTime();
 
@@ -98,15 +103,15 @@ void Game::setupScene()
 	m_ground = m_smgr->addCubeSceneNode(10.0f);
 	if (m_ground)
 	{
-		m_ground->setScale(vector3df(100.0f, 0.1f, 100.0f));
-		m_ground->setPosition(vector3df(0, -5, 0));
+		m_ground->setScale(vector3df(300.0f, 0.1f, 300.0f));
+		m_ground->setPosition(vector3df(0, -25, 0));
 		m_ground->setMaterialFlag(EMF_LIGHTING, false);
-		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/models/player/caleb.pcx"));
+		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/backgrounds/mainmenu.png"));
 	}
 
 	// Ground physics body (static box)
 	btBoxShape* groundShape = new btBoxShape(btVector3(500.0f, 0.5f, 500.0f));
-	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -5, 0));
+	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -25, 0));
 
 	// Lighting
 	m_smgr->addLightSceneNode(0, vector3df(0, 200, 0), SColorf(1.0f, 1.0f, 1.0f), 800.0f);
@@ -263,6 +268,19 @@ void Game::updatePlaying(f32 deltaTime)
 	{
 		m_player->takeDamage(m_enemy->getAttackDamage());
 		m_enemy->resetAttackCooldown();
+	}
+
+	// 7. Check ammo pickup overlap
+	if (m_ammoPickup)
+	{
+		m_ammoPickup->update(deltaTime);
+		if (!m_ammoPickup->isCollected()
+			&& m_ammoPickup->getTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(m_ammoPickup->getTrigger(), m_player->getBody()))
+		{
+			m_player->addAmmo(30);
+			m_ammoPickup->collect();
+		}
 	}
 
 	// Check for death → transition to GAMEOVER

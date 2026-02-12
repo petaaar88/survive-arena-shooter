@@ -4,6 +4,7 @@
 #include "Physics.h"
 #include "Player.h"
 #include "Enemy.h"
+#include "Pickup.h"
 #include "DebugDrawer.h"
 
 using namespace irr;
@@ -47,6 +48,7 @@ private:
 	// Game objects
 	Player*            m_player;
 	Enemy*             m_enemy;
+	Pickup*            m_ammoPickup;
 	ICameraSceneNode*  m_camera;
 	ISceneNode*        m_ground;
 
