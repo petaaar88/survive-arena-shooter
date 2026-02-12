@@ -1,6 +1,7 @@
 #include "Game.h"
 #include <cmath>
 
+
 static const f32 MOUSE_SENSITIVITY = 0.2f;
 static const f32 CAMERA_DISTANCE = 120.0f;
 static const f32 CAMERA_HEIGHT = 30.0f;
@@ -15,7 +16,6 @@ Game::Game()
 	, m_groundBody(nullptr)
 	, m_showDebug(false)
 	, m_player(nullptr)
-	, m_enemy(nullptr)
 	, m_ammoPickup(nullptr)
 	, m_camera(nullptr)
 	, m_ground(nullptr)
@@ -35,8 +35,8 @@ Game::~Game()
 	delete m_ammoPickup;
 	m_ammoPickup = nullptr;
 
-	delete m_enemy;
-	m_enemy = nullptr;
+	for (Enemy* e : m_enemies) delete e;
+	m_enemies.clear();
 
 	delete m_player;
 	m_player = nullptr;
@@ -71,7 +71,6 @@ void Game::init()
 	if (font)
 		skin->setFont(font);
 
-
 	// Create physics world before scene objects
 	m_physics = new Physics();
 
@@ -83,7 +82,9 @@ void Game::init()
 	setupHUD();
 
 	m_player = new Player(m_smgr, m_driver, m_physics);
-	m_enemy = new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200)));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, -200)));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, 200)));
 	m_ammoPickup = new Pickup(m_smgr, m_driver, m_physics, vector3df(-100, -25, -100), PickupType::AMMO);
 
 	m_lastTime = m_device->getTimer()->getTime();
@@ -92,6 +93,64 @@ void Game::init()
 	m_centerX = screenSize.Width / 2;
 	m_centerY = screenSize.Height / 2;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+
+
+	//Pillars
+	float width = 80.0f;
+	float height = 30.0f;
+	float depth = 60.0f;
+
+	float groundY = -25.0f;
+
+	core::vector2df positions[10] =
+	{
+		{100, 100},
+		{300, 200},
+		{500, 400},
+		{700, 600},
+		{900, 800},
+		{1100, 300},
+		{1300, 500},
+		{200, 1000},
+		{600, 1200},
+		{1400, 1400}
+	};
+
+	for (int i = 0; i < 10; i++)
+	{
+		scene::ISceneNode* pillar = m_smgr->addCubeSceneNode(1.0f);
+
+		if (pillar)
+		{
+			pillar->setScale(core::vector3df(width, height, depth));
+
+			core::vector3df pos(
+				positions[i].X,
+				groundY + height / 2.0f,
+				positions[i].Y
+			);
+
+			pillar->setPosition(pos);
+			pillar->setMaterialFlag(video::EMF_LIGHTING, false);
+
+			// -------- BULLET COLLIDER --------
+
+			// Bullet koristi HALF EXTENTS
+			btVector3 halfExtents(
+				width * 0.5f,
+				height * 0.5f,
+				depth * 0.5f
+			);
+
+			btBoxShape* boxShape = new btBoxShape(halfExtents);
+
+			btRigidBody* body = m_physics->createRigidBody(
+				0.0f,        // static
+				boxShape,
+				pos
+			);
+		}
+	}
 }
 
 void Game::setupScene()
@@ -110,7 +169,7 @@ void Game::setupScene()
 	}
 
 	// Ground physics body (static box)
-	btBoxShape* groundShape = new btBoxShape(btVector3(500.0f, 0.5f, 500.0f));
+	btBoxShape* groundShape = new btBoxShape(btVector3(1500.0f, 0.5f, 1500.0f));
 	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -25, 0));
 
 	// Lighting
@@ -239,35 +298,72 @@ void Game::updatePlaying(f32 deltaTime)
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
-	// 2. Update enemy AI (sets velocities)
-	if (m_enemy)
-		m_enemy->updateAI(deltaTime, m_player->getPosition());
+	// 2. Determine which enemy gets attack permission (only one at a time)
+	bool anyAttacking = false;
+	for (Enemy* enemy : m_enemies)
+	{
+		if (!enemy->isDead() && enemy->getState() == EnemyState::ATTACK)
+		{
+			enemy->setAttackAllowed(true);
+			anyAttacking = true;
+		}
+		else
+		{
+			enemy->setAttackAllowed(false);
+		}
+	}
+	if (!anyAttacking)
+	{
+		for (Enemy* enemy : m_enemies)
+		{
+			if (!enemy->isDead()
+				&& (enemy->getState() == EnemyState::WAIT_ATTACK
+					|| enemy->getState() == EnemyState::CHASE))
+			{
+				enemy->setAttackAllowed(true);
+				break;
+			}
+		}
+	}
+
+	// Update enemy AI (sets velocities)
+	for (Enemy* enemy : m_enemies)
+		enemy->updateAI(deltaTime, m_player->getPosition());
 
 	// 3. Step physics simulation
 	m_physics->stepSimulation(deltaTime);
 
 	// 4. Sync physics → visual nodes
 	m_player->update(deltaTime);
-	if (m_enemy)
-		m_enemy->update(deltaTime);
+	for (Enemy* enemy : m_enemies)
+		enemy->update(deltaTime);
 
-	// 5. Check if player's shot hit the enemy
+	// 5. Check if player's shot hit any enemy
 	btCollisionObject* hitObject = m_player->getLastHitObject();
-	if (hitObject && m_enemy)
+	if (hitObject)
 	{
-		GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
-		if (hitGameObject == m_enemy)
-			m_enemy->takeDamage(25);
+		for (Enemy* enemy : m_enemies)
+		{
+			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
+			if (hitGameObject == enemy)
+			{
+				enemy->takeDamage(25);
+				break;
+			}
+		}
 	}
 
-	// 6. Check if enemy's attack trigger overlaps player
-	if (m_enemy && !m_enemy->isDead()
-		&& m_enemy->getAttackTrigger() && m_player->getBody()
-		&& m_physics->isGhostOverlapping(m_enemy->getAttackTrigger(), m_player->getBody())
-		&& m_enemy->wantsToDealDamage())
+	// 6. Check if any enemy's attack trigger overlaps player
+	for (Enemy* enemy : m_enemies)
 	{
-		m_player->takeDamage(m_enemy->getAttackDamage());
-		m_enemy->resetAttackCooldown();
+		if (!enemy->isDead()
+			&& enemy->getAttackTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(enemy->getAttackTrigger(), m_player->getBody())
+			&& enemy->wantsToDealDamage())
+		{
+			m_player->takeDamage(enemy->getAttackDamage());
+			enemy->resetAttackCooldown();
+		}
 	}
 
 	// 7. Check ammo pickup overlap

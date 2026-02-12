@@ -1,5 +1,6 @@
 #pragma once
 #include <irrlicht.h>
+#include <vector>
 #include "InputHandler.h"
 #include "Physics.h"
 #include "Player.h"
@@ -47,7 +48,7 @@ private:
 
 	// Game objects
 	Player*            m_player;
-	Enemy*             m_enemy;
+	std::vector<Enemy*> m_enemies;
 	Pickup*            m_ammoPickup;
 	ICameraSceneNode*  m_camera;
 	ISceneNode*        m_ground;

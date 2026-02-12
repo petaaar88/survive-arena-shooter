@@ -12,6 +12,9 @@ static const f32 ENEMY_PAIN_DURATION = 0.4f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
 static const f32 ATTACK_TRIGGER_RADIUS = 15.0f;
 static const f32 ATTACK_TRIGGER_FORWARD_OFFSET = 25.0f;
+static const f32 STUCK_TIME_THRESHOLD = 1.0f;
+static const f32 STUCK_DISTANCE_THRESHOLD = 5.0f;
+static const f32 STRAFE_DURATION = 0.6f;
 
 Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos)
 	: GameObject(nullptr, nullptr)
@@ -27,8 +30,14 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	, m_attackCooldown(0.0f)
 	, m_deathTimer(0.0f)
 	, m_painTimer(0.0f)
+	, m_attackAllowed(false)
 	, m_attackTrigger(nullptr)
 	, m_attackShape(nullptr)
+	, m_lastCheckedPos(spawnPos)
+	, m_stuckTimer(0.0f)
+	, m_isStrafing(false)
+	, m_strafeTimer(0.0f)
+	, m_strafeDirection(1.0f)
 {
 	IAnimatedMesh* mesh = smgr->getMesh("assets/models/enemy/tris.md2");
 	if (mesh)
@@ -163,16 +172,52 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		if (dir.getLength() > 0)
 			dir.normalize();
 
+		vector3df moveDir = dir;
+
+		if (m_isStrafing)
+		{
+			// Move perpendicular to player direction
+			moveDir = vector3df(-dir.Z, 0, dir.X) * m_strafeDirection;
+			m_strafeTimer -= deltaTime;
+			if (m_strafeTimer <= 0)
+			{
+				m_isStrafing = false;
+				m_stuckTimer = 0.0f;
+				m_lastCheckedPos = pos;
+			}
+		}
+		else
+		{
+			// Stuck detection: check if enemy barely moved
+			f32 distMoved = pos.getDistanceFrom(m_lastCheckedPos);
+			if (distMoved < STUCK_DISTANCE_THRESHOLD)
+			{
+				m_stuckTimer += deltaTime;
+				if (m_stuckTimer >= STUCK_TIME_THRESHOLD)
+				{
+					m_isStrafing = true;
+					m_strafeTimer = STRAFE_DURATION;
+					// Alternate direction: pick based on a simple heuristic
+					m_strafeDirection = (fmodf(pos.X + pos.Z, 2.0f) > 1.0f) ? 1.0f : -1.0f;
+				}
+			}
+			else
+			{
+				m_stuckTimer = 0.0f;
+				m_lastCheckedPos = pos;
+			}
+		}
+
 		// Set velocity on Bullet body
 		if (m_body)
 		{
-			btVector3 velocity(dir.X * ENEMY_SPEED,
+			btVector3 velocity(moveDir.X * ENEMY_SPEED,
 				m_body->getLinearVelocity().getY(),
-				dir.Z * ENEMY_SPEED);
+				moveDir.Z * ENEMY_SPEED);
 			m_body->setLinearVelocity(velocity);
 		}
 
-		m_rotationY = atan2f(dir.X, dir.Z) * core::RADTODEG;
+		m_rotationY = atan2f(moveDir.X, moveDir.Z) * core::RADTODEG;
 
 		if (!m_isMoving)
 		{
@@ -182,12 +227,52 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 		if (distToPlayer < ENEMY_ATTACK_RANGE)
 		{
-			m_state = EnemyState::ATTACK;
-			m_isMoving = false;
-			if (m_animNode) m_animNode->setMD2Animation(EMAT_ATTACK);
+			if (m_attackAllowed)
+			{
+				m_state = EnemyState::ATTACK;
+				m_isMoving = false;
+				m_isStrafing = false;
+				m_stuckTimer = 0.0f;
+				if (m_animNode) m_animNode->setMD2Animation(EMAT_ATTACK);
+			}
+			else
+			{
+				m_state = EnemyState::WAIT_ATTACK;
+				m_isMoving = false;
+				m_isStrafing = false;
+				m_stuckTimer = 0.0f;
+				if (m_body)
+					m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+				if (m_animNode) m_animNode->setMD2Animation(EMAT_STAND);
+			}
 		}
 		break;
 	}
+
+	case EnemyState::WAIT_ATTACK:
+		// Stop movement, stand idle while waiting for attack turn
+		if (m_body)
+			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+
+		// Face the player while waiting
+		{
+			vector3df dirToPlayer = playerPos - pos;
+			dirToPlayer.Y = 0;
+			if (dirToPlayer.getLength() > 0)
+				m_rotationY = atan2f(dirToPlayer.X, dirToPlayer.Z) * core::RADTODEG;
+		}
+
+		if (m_attackAllowed && distToPlayer < ENEMY_ATTACK_RANGE)
+		{
+			m_state = EnemyState::ATTACK;
+			if (m_animNode) m_animNode->setMD2Animation(EMAT_ATTACK);
+		}
+		else if (distToPlayer > ENEMY_ATTACK_RANGE * 1.5f)
+		{
+			m_state = EnemyState::CHASE;
+			m_isMoving = false;
+		}
+		break;
 
 	case EnemyState::ATTACK:
 		m_attackCooldown -= deltaTime;
@@ -233,6 +318,8 @@ void Enemy::takeDamage(s32 amount)
 		m_isInPain = true;
 		m_painTimer = ENEMY_PAIN_DURATION;
 		m_isMoving = false;
+		m_isStrafing = false;
+		m_stuckTimer = 0.0f;
 
 		if (m_animNode)
 			m_animNode->setMD2Animation(EMAT_PAIN_A);

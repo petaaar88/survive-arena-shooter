@@ -8,7 +8,7 @@ using namespace core;
 using namespace scene;
 using namespace video;
 
-enum class EnemyState { IDLE, CHASE, ATTACK, DEAD };
+enum class EnemyState { IDLE, CHASE, WAIT_ATTACK, ATTACK, DEAD };
 
 class Enemy : public GameObject
 {
@@ -28,6 +28,9 @@ public:
 	void resetAttackCooldown();
 	btGhostObject* getAttackTrigger() const { return m_attackTrigger; }
 
+	void setAttackAllowed(bool allowed) { m_attackAllowed = allowed; }
+	EnemyState getState() const { return m_state; }
+
 private:
 	void updateAttackTrigger();
 	ISceneManager* m_smgr;
@@ -46,6 +49,15 @@ private:
 	f32 m_deathTimer;
 	f32 m_painTimer;
 
+	bool m_attackAllowed;
+
 	btGhostObject* m_attackTrigger;
 	btSphereShape* m_attackShape;
+
+	// Stuck detection & obstacle avoidance
+	vector3df m_lastCheckedPos;
+	f32       m_stuckTimer;
+	bool      m_isStrafing;
+	f32       m_strafeTimer;
+	f32       m_strafeDirection; // +1 = right, -1 = left
 };
