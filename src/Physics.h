@@ -1,5 +1,6 @@
 #pragma once
 #include <btBulletDynamicsCommon.h>
+#include <BulletCollision/CollisionDispatch/btGhostObject.h>
 #include <irrlicht.h>
 
 using namespace irr;
@@ -28,6 +29,10 @@ public:
 	};
 
 	RayResult rayTest(const vector3df& from, const vector3df& to);
+
+	void addGhostObject(btGhostObject* ghost);
+	void removeGhostObject(btGhostObject* ghost);
+	bool isGhostOverlapping(btGhostObject* ghost, btRigidBody* body);
 
 	void setDebugDrawer(btIDebugDraw* drawer);
 	void debugDrawWorld();

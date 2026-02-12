@@ -8,6 +8,9 @@ Physics::Physics()
 	m_solver = new btSequentialImpulseConstraintSolver();
 	m_world = new btDiscreteDynamicsWorld(m_dispatcher, m_broadphase, m_solver, m_collisionConfig);
 	m_world->setGravity(btVector3(0, -981.0f, 0));
+
+	// Required for btGhostObject overlap detection
+	m_broadphase->getOverlappingPairCache()->setInternalGhostPairCallback(new btGhostPairCallback());
 }
 
 Physics::~Physics()
@@ -79,6 +82,32 @@ void Physics::debugDrawWorld()
 	m_world->debugDrawWorld();
 }
 
+void Physics::addGhostObject(btGhostObject* ghost)
+{
+	if (ghost)
+		m_world->addCollisionObject(ghost, btBroadphaseProxy::SensorTrigger,
+			btBroadphaseProxy::AllFilter);
+}
+
+void Physics::removeGhostObject(btGhostObject* ghost)
+{
+	if (ghost)
+		m_world->removeCollisionObject(ghost);
+}
+
+bool Physics::isGhostOverlapping(btGhostObject* ghost, btRigidBody* body)
+{
+	if (!ghost || !body)
+		return false;
+
+	for (int i = 0; i < ghost->getNumOverlappingObjects(); i++)
+	{
+		if (ghost->getOverlappingObject(i) == body)
+			return true;
+	}
+	return false;
+}
+
 Physics::RayResult Physics::rayTest(const vector3df& from, const vector3df& to)
 {
 	RayResult result;
@@ -90,7 +119,21 @@ Physics::RayResult Physics::rayTest(const vector3df& from, const vector3df& to)
 	btVector3 btFrom = toBullet(from);
 	btVector3 btTo = toBullet(to);
 
-	btCollisionWorld::ClosestRayResultCallback callback(btFrom, btTo);
+	// Custom callback that skips ghost/trigger objects (CF_NO_CONTACT_RESPONSE)
+	struct IgnoreGhostsRayCallback : public btCollisionWorld::ClosestRayResultCallback
+	{
+		IgnoreGhostsRayCallback(const btVector3& from, const btVector3& to)
+			: ClosestRayResultCallback(from, to) {}
+
+		btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, bool normalInWorldSpace) override
+		{
+			if (rayResult.m_collisionObject->getCollisionFlags() & btCollisionObject::CF_NO_CONTACT_RESPONSE)
+				return 1.0f;
+			return ClosestRayResultCallback::addSingleResult(rayResult, normalInWorldSpace);
+		}
+	};
+
+	IgnoreGhostsRayCallback callback(btFrom, btTo);
 	m_world->rayTest(btFrom, btTo, callback);
 
 	if (callback.hasHit())

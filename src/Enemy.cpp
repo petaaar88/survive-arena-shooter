@@ -2,7 +2,7 @@
 #include <cmath>
 
 static const f32 ENEMY_SPEED = 80.0f;
-static const f32 ENEMY_ATTACK_RANGE = 30.0f;
+static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;
 static const s32 ENEMY_HEALTH = 50;
@@ -10,6 +10,8 @@ static const s32 ENEMY_DAMAGE = 10;
 static const f32 ENEMY_DEATH_DURATION = 1.5f;
 static const f32 ENEMY_PAIN_DURATION = 0.4f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
+static const f32 ATTACK_TRIGGER_RADIUS = 15.0f;
+static const f32 ATTACK_TRIGGER_FORWARD_OFFSET = 25.0f;
 
 Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos)
 	: GameObject(nullptr, nullptr)
@@ -25,6 +27,8 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	, m_attackCooldown(0.0f)
 	, m_deathTimer(0.0f)
 	, m_painTimer(0.0f)
+	, m_attackTrigger(nullptr)
+	, m_attackShape(nullptr)
 {
 	IAnimatedMesh* mesh = smgr->getMesh("assets/models/enemy/tris.md2");
 	if (mesh)
@@ -47,10 +51,28 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	m_body->setUserPointer(this);
 
 	m_node = m_animNode;
+
+	// Create attack trigger ghost object (positioned in front of enemy)
+	m_attackShape = new btSphereShape(ATTACK_TRIGGER_RADIUS);
+	m_attackTrigger = new btGhostObject();
+	m_attackTrigger->setCollisionShape(m_attackShape);
+	m_attackTrigger->setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
+	btTransform triggerTransform;
+	triggerTransform.setIdentity();
+	triggerTransform.setOrigin(toBullet(spawnPos));
+	m_attackTrigger->setWorldTransform(triggerTransform);
+	physics->addGhostObject(m_attackTrigger);
 }
 
 Enemy::~Enemy()
 {
+	if (m_attackTrigger)
+	{
+		m_physics->removeGhostObject(m_attackTrigger);
+		delete m_attackTrigger;
+	}
+	delete m_attackShape;
+
 	if (m_animNode)
 		m_animNode->remove();
 }
@@ -62,6 +84,27 @@ void Enemy::update(f32 deltaTime)
 
 	if (m_animNode)
 		m_animNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
+
+	updateAttackTrigger();
+}
+
+void Enemy::updateAttackTrigger()
+{
+	if (!m_attackTrigger || !m_body)
+		return;
+
+	// Compute forward direction from enemy's facing angle
+	f32 yawRad = m_rotationY * core::DEGTORAD;
+	btVector3 forward(sinf(yawRad), 0, cosf(yawRad));
+
+	btTransform bodyTransform;
+	m_body->getMotionState()->getWorldTransform(bodyTransform);
+	btVector3 triggerPos = bodyTransform.getOrigin() + forward * ATTACK_TRIGGER_FORWARD_OFFSET;
+
+	btTransform triggerTransform;
+	triggerTransform.setIdentity();
+	triggerTransform.setOrigin(triggerPos);
+	m_attackTrigger->setWorldTransform(triggerTransform);
 }
 
 void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
@@ -194,4 +237,19 @@ void Enemy::takeDamage(s32 amount)
 		if (m_animNode)
 			m_animNode->setMD2Animation(EMAT_PAIN_A);
 	}
+}
+
+bool Enemy::wantsToDealDamage() const
+{
+	return m_state == EnemyState::ATTACK && m_attackCooldown <= 0 && !m_isDead;
+}
+
+s32 Enemy::getAttackDamage() const
+{
+	return ENEMY_DAMAGE;
+}
+
+void Enemy::resetAttackCooldown()
+{
+	m_attackCooldown = ENEMY_ATTACK_COOLDOWN;
 }

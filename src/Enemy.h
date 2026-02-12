@@ -23,7 +23,13 @@ public:
 
 	void takeDamage(s32 amount);
 
+	bool wantsToDealDamage() const;
+	s32 getAttackDamage() const;
+	void resetAttackCooldown();
+	btGhostObject* getAttackTrigger() const { return m_attackTrigger; }
+
 private:
+	void updateAttackTrigger();
 	ISceneManager* m_smgr;
 	Physics* m_physics;
 	IAnimatedMeshSceneNode* m_animNode;
@@ -39,4 +45,7 @@ private:
 	f32 m_attackCooldown;
 	f32 m_deathTimer;
 	f32 m_painTimer;
+
+	btGhostObject* m_attackTrigger;
+	btSphereShape* m_attackShape;
 };

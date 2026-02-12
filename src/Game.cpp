@@ -231,10 +231,6 @@ void Game::updatePlaying(f32 deltaTime)
 	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
-	// Test: T key deals damage to player
-	if (m_input.consumeKeyPress(KEY_KEY_T))
-		m_player->takeDamage(25);
-
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
@@ -257,6 +253,16 @@ void Game::updatePlaying(f32 deltaTime)
 		GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
 		if (hitGameObject == m_enemy)
 			m_enemy->takeDamage(25);
+	}
+
+	// 6. Check if enemy's attack trigger overlaps player
+	if (m_enemy && !m_enemy->isDead()
+		&& m_enemy->getAttackTrigger() && m_player->getBody()
+		&& m_physics->isGhostOverlapping(m_enemy->getAttackTrigger(), m_player->getBody())
+		&& m_enemy->wantsToDealDamage())
+	{
+		m_player->takeDamage(m_enemy->getAttackDamage());
+		m_enemy->resetAttackCooldown();
 	}
 
 	// Check for death → transition to GAMEOVER
