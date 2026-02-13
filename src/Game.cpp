@@ -85,6 +85,9 @@ void Game::init()
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200)));
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, -200)));
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, 200)));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, -200)));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(300, 0, 0)));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-300, 0, 0)));
 	m_ammoPickup = new Pickup(m_smgr, m_driver, m_physics, vector3df(-100, -25, -100), PickupType::AMMO);
 
 	m_lastTime = m_device->getTimer()->getTime();
@@ -334,6 +337,14 @@ void Game::updatePlaying(f32 deltaTime)
 		if (closest)
 			closest->setAttackAllowed(true);
 	}
+
+	// Salute permission: only allow if >2 enemies are actively chasing (not saluting)
+	int activeChasers = 0;
+	for (Enemy* enemy : m_enemies)
+		if (!enemy->isDead() && enemy->getState() == EnemyState::CHASE && !enemy->isSaluting())
+			activeChasers++;
+	for (Enemy* enemy : m_enemies)
+		enemy->setSaluteAllowed(activeChasers > 2);
 
 	// Update enemy AI (sets velocities)
 	for (Enemy* enemy : m_enemies)

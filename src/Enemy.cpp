@@ -1,7 +1,8 @@
 #include "Enemy.h"
 #include <cmath>
+#include <cstdlib>
 
-static const f32 ENEMY_SPEED = 80.0f;
+static const f32 ENEMY_SPEED = 130.0f;
 static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;
@@ -15,6 +16,9 @@ static const f32 ATTACK_TRIGGER_FORWARD_OFFSET = 25.0f;
 static const f32 STUCK_TIME_THRESHOLD = 1.0f;
 static const f32 STUCK_DISTANCE_THRESHOLD = 5.0f;
 static const f32 STRAFE_DURATION = 0.6f;
+static const f32 SALUTE_DURATION = 2.0f;
+static const f32 SALUTE_COOLDOWN_MIN = 3.0f;
+static const f32 SALUTE_COOLDOWN_MAX = 8.0f;
 
 Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos)
 	: GameObject(nullptr, nullptr)
@@ -38,6 +42,10 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	, m_isStrafing(false)
 	, m_strafeTimer(0.0f)
 	, m_strafeDirection(1.0f)
+	, m_isSaluting(false)
+	, m_saluteTimer(0.0f)
+	, m_saluteCooldown(SALUTE_COOLDOWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (SALUTE_COOLDOWN_MAX - SALUTE_COOLDOWN_MIN))
+	, m_saluteAllowed(false)
 {
 	IAnimatedMesh* mesh = smgr->getMesh("assets/models/enemy/tris.md2");
 	if (mesh)
@@ -167,6 +175,35 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 	case EnemyState::CHASE:
 	{
+		// Salute pause mechanic (balancing when many enemies chase)
+		if (m_isSaluting)
+		{
+			if (m_body)
+				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+			m_saluteTimer -= deltaTime;
+			if (m_saluteTimer <= 0)
+			{
+				m_isSaluting = false;
+				m_isMoving = false;
+			}
+			break;
+		}
+
+		m_saluteCooldown -= deltaTime;
+		if (m_saluteCooldown < 0) m_saluteCooldown = 0;
+
+		if (m_saluteAllowed && m_saluteCooldown <= 0)
+		{
+			m_isSaluting = true;
+			m_saluteTimer = SALUTE_DURATION;
+			m_saluteCooldown = SALUTE_COOLDOWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (SALUTE_COOLDOWN_MAX - SALUTE_COOLDOWN_MIN);
+			m_isMoving = false;
+			if (m_body)
+				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+			if (m_animNode) m_animNode->setMD2Animation(EMAT_SALUTE);
+			break;
+		}
+
 		vector3df dir = playerPos - pos;
 		dir.Y = 0;
 		if (dir.getLength() > 0)

@@ -29,6 +29,8 @@ public:
 	btGhostObject* getAttackTrigger() const { return m_attackTrigger; }
 
 	void setAttackAllowed(bool allowed) { m_attackAllowed = allowed; }
+	void setSaluteAllowed(bool allowed) { m_saluteAllowed = allowed; }
+	bool isSaluting() const { return m_isSaluting; }
 	EnemyState getState() const { return m_state; }
 
 private:
@@ -60,4 +62,10 @@ private:
 	bool      m_isStrafing;
 	f32       m_strafeTimer;
 	f32       m_strafeDirection; // +1 = right, -1 = left
+
+	// Salute pause (balancing mechanic)
+	bool m_isSaluting;
+	f32  m_saluteTimer;
+	f32  m_saluteCooldown;
+	bool m_saluteAllowed;
 };
