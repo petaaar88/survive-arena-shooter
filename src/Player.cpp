@@ -210,15 +210,14 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	if (moveDir.getLength() > 0)
 		moveDir.normalize();
 
-	float aimingSpeedDecrement = 0;
 
 	// **Rotacija igrača**
 	if (input.isRightMouseDown())
 	{
-		aimingSpeedDecrement = 70.0f;
 		// Drži desni klik → uvek okrenut ka kameri
 		m_rotationY = cameraYaw;
 		m_forward = camForward; // forward u smeru kamere
+		moving = false;
 	}
 	else if (moveDir.getLength() > 0)
 	{
@@ -234,9 +233,8 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		moveDir = vector3df(0, 0, 0);
 		moving = false;
 	}
+	f32 speed = input.isRightMouseDown() ? 0 : PLAYER_SPEED; // ne može se kretati dok je desni klik držan (gledanje)
 
-	// Move via velocity so Bullet handles collisions with obstacles
-	f32 speed = PLAYER_SPEED - aimingSpeedDecrement;
 	if (m_body)
 	{
 		btVector3 velocity(moveDir.X * speed, 0, moveDir.Z * speed);
