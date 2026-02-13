@@ -168,6 +168,14 @@ void Game::setupScene()
 		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/building/ground.jpg"));
 	}
 
+	m_smgr->addSkyBoxSceneNode(
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_up.jpg"), 
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_dn.jpg"), 
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_lf.jpg"),
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_rt.jpg"),
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_ft.jpg"),
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_bk.jpg"));
+
 	// Ground physics body (static box)
 	btBoxShape* groundShape = new btBoxShape(btVector3(1500.0f, 0.5f, 1500.0f));
 	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -25, 0));
