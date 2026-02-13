@@ -2,7 +2,7 @@
 
 static const f32 PICKUP_RESPAWN_TIME = 30.0f;
 static const f32 PICKUP_TRIGGER_RADIUS = 20.0f;
-static const f32 PICKUP_VISUAL_SIZE = 5.0f;
+static const f32 PICKUP_VISUAL_SIZE = 10.0f;
 static const f32 PICKUP_HOVER_HEIGHT = 10.0f;
 static const f32 PICKUP_ROTATE_SPEED = 90.0f;
 

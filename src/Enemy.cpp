@@ -2,7 +2,7 @@
 #include <cmath>
 #include <cstdlib>
 
-static const f32 ENEMY_SPEED = 130.0f;
+static const f32 ENEMY_SPEED = 150.0f;
 static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;

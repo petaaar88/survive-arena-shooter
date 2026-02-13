@@ -98,60 +98,57 @@ void Game::init()
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
 
-	//Pillars
-	float width = 80.0f;
-	float height = 30.0f;
-	float depth = 60.0f;
-
-	float groundY = -25.0f;
-
-	core::vector2df positions[10] =
+	// Obstacle data: { posX, posZ, width, height, depth, isPillar }
+	struct ObstacleData { float x, z, w, h, d; bool isPillar; };
+	static const ObstacleData obstacles[] =
 	{
-		{100, 100},
-		{300, 200},
-		{500, 400},
-		{700, 600},
-		{900, 800},
-		{1100, 300},
-		{1300, 500},
-		{200, 1000},
-		{600, 1200},
-		{1400, 1400}
+		// Pillars (tall & thick)
+		{  150,  250, 50, 180, 50, true },
+		{ -300,  400, 60, 210, 60, true },
+		{  500, -200, 40, 150, 40, true },
+		{ -600, -500, 70, 240, 70, true },
+		{  800,  600, 50, 165, 50, true },
+		{ -900,  100, 60, 195, 60, true },
+		{  350, -700, 40, 225, 40, true },
+		{ -200, -900, 50, 180, 50, true },
+		{ 1000, -400, 60, 210, 60, true },
+		{-1100,  700, 50, 150, 50, true },
+		{  700,  900, 70, 240, 70, true },
+		{ -500,  800, 40, 165, 40, true },
+
+		// Boxes (short & wide)
+		{  250, -350, 50, 30, 40, false },
+		{ -400, -150, 60, 40, 50, false },
+		{  600,  350, 40, 25, 35, false },
+		{ -750,  500, 55, 45, 45, false },
+		{  450,  700, 45, 30, 55, false },
+		{ -300, -600, 50, 40, 40, false },
+		{  900, -100, 35, 25, 60, false },
+		{-1000, -300, 60, 45, 50, false },
+		{  200,  500, 40, 30, 40, false },
+		{ -150,  150, 55, 40, 55, false },
+		{  750, -800, 45, 25, 35, false },
+		{ -800, -700, 50, 45, 45, false },
 	};
 
-	for (int i = 0; i < 10; i++)
+	static const float groundY = -25.0f;
+	ITexture* pillarTex = m_driver->getTexture("assets/textures/obstacles/pillar.png");
+	ITexture* boxTex = m_driver->getTexture("assets/textures/obstacles/box.png");
+
+	for (const auto& obs : obstacles)
 	{
-		scene::ISceneNode* pillar = m_smgr->addCubeSceneNode(1.0f);
-
-		if (pillar)
+		scene::ISceneNode* node = m_smgr->addCubeSceneNode(1.0f);
+		if (node)
 		{
-			pillar->setScale(core::vector3df(width, height, depth));
+			node->setScale(core::vector3df(obs.w, obs.h, obs.d));
 
-			core::vector3df pos(
-				positions[i].X,
-				groundY + height / 2.0f,
-				positions[i].Y
-			);
+			core::vector3df pos(obs.x, groundY + obs.h / 2.0f, obs.z);
+			node->setPosition(pos);
+			node->setMaterialFlag(video::EMF_LIGHTING, false);
+			node->setMaterialTexture(0, obs.isPillar ? pillarTex : boxTex);
 
-			pillar->setPosition(pos);
-			pillar->setMaterialFlag(video::EMF_LIGHTING, false);
-
-			// -------- BULLET COLLIDER --------
-
-			// Bullet koristi HALF EXTENTS
-			btVector3 halfExtents(
-				width * 0.5f,
-				height * 0.5f,
-				depth * 0.5f
-			);
-
-			btBoxShape* boxShape = new btBoxShape(halfExtents);
-
-			btRigidBody* body = m_physics->createRigidBody(
-				0.0f,        // static
-				boxShape,
-				pos
-			);
+			btBoxShape* shape = new btBoxShape(btVector3(obs.w * 0.5f, obs.h * 0.5f, obs.d * 0.5f));
+			m_physics->createRigidBody(0.0f, shape, pos);
 		}
 	}
 }
@@ -168,7 +165,7 @@ void Game::setupScene()
 		m_ground->setScale(vector3df(300.0f, 0.1f, 300.0f));
 		m_ground->setPosition(vector3df(0, -25, 0));
 		m_ground->setMaterialFlag(EMF_LIGHTING, false);
-		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/backgrounds/mainmenu.png"));
+		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/building/ground.jpg"));
 	}
 
 	// Ground physics body (static box)
