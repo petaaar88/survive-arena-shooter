@@ -338,13 +338,9 @@ void Game::updatePlaying(f32 deltaTime)
 			closest->setAttackAllowed(true);
 	}
 
-	// Salute permission: only allow if >2 enemies are actively chasing (not saluting)
-	int activeChasers = 0;
+	// Allow saluting for all non-dead chasing enemies
 	for (Enemy* enemy : m_enemies)
-		if (!enemy->isDead() && enemy->getState() == EnemyState::CHASE && !enemy->isSaluting())
-			activeChasers++;
-	for (Enemy* enemy : m_enemies)
-		enemy->setSaluteAllowed(activeChasers > 2);
+		enemy->setSaluteAllowed(!enemy->isDead() && enemy->getState() == EnemyState::CHASE);
 
 	// Update enemy AI (sets velocities)
 	for (Enemy* enemy : m_enemies)
