@@ -1,6 +1,6 @@
 #include "Game.h"
 #include <cmath>
-
+#include <iostream>
 
 static const f32 MOUSE_SENSITIVITY = 0.2f;
 static const f32 CAMERA_DISTANCE = 120.0f;
@@ -14,7 +14,7 @@ Game::Game()
 	, m_physics(nullptr)
 	, m_debugDrawer(nullptr)
 	, m_groundBody(nullptr)
-	, m_showDebug(false)
+	, m_showDebug(true)
 	, m_player(nullptr)
 	, m_ammoPickup(nullptr)
 	, m_camera(nullptr)
@@ -157,7 +157,7 @@ void Game::setupScene()
 {
 	// Camera
 	m_camera = m_smgr->addCameraSceneNode();
-
+	m_camera->setFarValue(18000.0f);
 	// Ground plane (visual)
 	m_ground = m_smgr->addCubeSceneNode(10.0f);
 	if (m_ground)
@@ -180,9 +180,51 @@ void Game::setupScene()
 	btBoxShape* groundShape = new btBoxShape(btVector3(1500.0f, 0.5f, 1500.0f));
 	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -25, 0));
 
+	// Arena boundary walls (invisible)
+	float wallHeight = 200.0f;
+	float wallThickness = 80.0f;
+	float halfGround = 1500.0f;
+	float wallY = -25.0f + wallHeight / 2.0f;
+
+	// +X wall at x=1500
+	btBoxShape* wallShapeX = new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround));
+	m_physics->createRigidBody(0.0f, wallShapeX, vector3df(halfGround - 300, wallY, 0));
+	// -X wall at x=-1500
+	m_physics->createRigidBody(0.0f, new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround)), vector3df(-halfGround, wallY, 0));
+	// +Z wall at z=1500
+	btBoxShape* wallShapeZ = new btBoxShape(btVector3(halfGround, wallHeight / 2.0f, wallThickness / 2.0f));
+	m_physics->createRigidBody(0.0f, wallShapeZ, vector3df(0, wallY, halfGround - 300));
+	// -Z wall at z=-1500
+	m_physics->createRigidBody(0.0f, new btBoxShape(btVector3(halfGround, wallHeight / 2.0f, wallThickness / 2.0f)), vector3df(0, wallY, -halfGround + 320));
+
+	// side wall of +X wall (rotated 45 degrees)
+	btBoxShape* wallShapeSide1X = new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround));
+	btRigidBody* wallSide1X = m_physics->createRigidBody(0.0f, wallShapeSide1X, vector3df(halfGround - 300, wallY, -270));
+	btTransform tr;
+	wallSide1X->getMotionState()->getWorldTransform(tr);
+	tr.setRotation(btQuaternion(btVector3(0, 1, 0), 45.0f * core::DEGTORAD));
+	wallSide1X->getMotionState()->setWorldTransform(tr);
+	wallSide1X->setWorldTransform(tr);
+
+	// side wall of +X wall (rotated 45 degrees)
+	btBoxShape* wallShapeSide2X = new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround + 200));
+	btRigidBody* wallSide2X = m_physics->createRigidBody(0.0f, wallShapeSide2X, vector3df(halfGround - 50, wallY, 100.0f));
+	btTransform tr2;
+	wallSide2X->getMotionState()->getWorldTransform(tr2);
+	tr2.setRotation(btQuaternion(btVector3(0, 1, 0), -47.0f * core::DEGTORAD));
+	wallSide2X->getMotionState()->setWorldTransform(tr2);
+	wallSide2X->setWorldTransform(tr2);
+
 	// Lighting
 	m_smgr->addLightSceneNode(0, vector3df(0, 200, 0), SColorf(1.0f, 1.0f, 1.0f), 800.0f);
 	m_smgr->setAmbientLight(SColorf(0.3f, 0.3f, 0.3f));
+
+
+	IMeshSceneNode* map = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/Colloseum.obj"));
+	map->setPosition(vector3df(-620, 110, 0));
+
+	map->setScale(vector3df(10, 11, 11));
+	map->setMaterialFlag(EMF_LIGHTING, false);
 }
 
 void Game::setupHUD()
@@ -236,6 +278,7 @@ void Game::run()
 
 	while (m_device->run())
 	{
+		std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
 		if (!m_device->isWindowActive())
 		{
 			m_device->yield();
