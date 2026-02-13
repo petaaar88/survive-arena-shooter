@@ -82,12 +82,12 @@ void Game::init()
 	setupHUD();
 
 	m_player = new Player(m_smgr, m_driver, m_physics);
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200)));
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, -200)));
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, 200)));
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, -200)));
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(300, 0, 0)));
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-300, 0, 0)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, -200)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, 200)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, -200)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(300, 0, 0)));
+	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-300, 0, 0)));
 	m_ammoPickup = new Pickup(m_smgr, m_driver, m_physics, vector3df(-100, -25, -100), PickupType::AMMO);
 
 	m_lastTime = m_device->getTimer()->getTime();
@@ -190,7 +190,7 @@ void Game::setupScene()
 	btBoxShape* wallShapeX = new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround));
 	m_physics->createRigidBody(0.0f, wallShapeX, vector3df(halfGround - 300, wallY, 0));
 	// -X wall at x=-1500
-	m_physics->createRigidBody(0.0f, new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround)), vector3df(-halfGround, wallY, 0));
+	m_physics->createRigidBody(0.0f, new btBoxShape(btVector3(wallThickness / 2.0f, wallHeight / 2.0f, halfGround)), vector3df(-halfGround + 50, wallY, 0));
 	// +Z wall at z=1500
 	btBoxShape* wallShapeZ = new btBoxShape(btVector3(halfGround, wallHeight / 2.0f, wallThickness / 2.0f));
 	m_physics->createRigidBody(0.0f, wallShapeZ, vector3df(0, wallY, halfGround - 300));
@@ -220,11 +220,64 @@ void Game::setupScene()
 	m_smgr->setAmbientLight(SColorf(0.3f, 0.3f, 0.3f));
 
 
-	IMeshSceneNode* map = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/Colloseum.obj"));
-	map->setPosition(vector3df(-620, 110, 0));
+	IMeshSceneNode* map = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/colloseum/Colloseum.obj"));
+	map->setPosition(vector3df(-620, 180, 0));
 
 	map->setScale(vector3df(10, 11, 11));
 	map->setMaterialFlag(EMF_LIGHTING, false);
+
+	setupGates(map);
+}
+
+void Game::setupGates(IMeshSceneNode* map)
+{
+	IMesh* gateMesh = m_smgr->getMesh("assets/maps/gate/gate.obj");
+	ITexture* pillarTex = m_driver->getTexture("assets/textures/obstacles/pillar.png");
+
+	struct GateData { vector3df position; f32 rotationY; };
+	GateData gates[] =
+	{
+		{ vector3df( -7, -25,    0),  90.0f },  // +X edge, face inward
+		{ vector3df( 105, -25,    0), -90.0f },  // -X edge, face inward
+		{ vector3df(    0, -25, 38), 180.0f },  // +Z edge, face inward
+		{ vector3df(    0, -25,-38),   0.0f },  // -Z edge, face inward
+	};
+
+	for (const auto& g : gates)
+	{
+		IMeshSceneNode* gate = m_smgr->addMeshSceneNode(gateMesh, map);
+		gate->setPosition(g.position);
+		gate->setRotation(vector3df(0, g.rotationY, 0));
+		gate->setScale(vector3df(4, 3, 8));
+		gate->setMaterialFlag(video::EMF_LIGHTING, false);
+
+		// Black backdrop
+		IMeshSceneNode* blackCube = m_smgr->addCubeSceneNode(20.0f, gate);
+		blackCube->setPosition(vector3df(2, 5.6f, -10.3f));
+		blackCube->setScale(vector3df(0.3f, 0.35f, 0.1f));
+		blackCube->setMaterialFlag(video::EMF_LIGHTING, true);
+		blackCube->setMaterialType(video::EMT_SOLID);
+		blackCube->getMaterial(0).ColorMaterial = video::ECM_NONE;
+		blackCube->getMaterial(0).DiffuseColor = SColor(255, 0, 0, 0);
+		blackCube->getMaterial(0).AmbientColor = SColor(255, 0, 0, 0);
+		blackCube->getMaterial(0).EmissiveColor = SColor(255, 0, 0, 0);
+
+		// Left pillar
+		IMeshSceneNode* leftCube = m_smgr->addCubeSceneNode(20.0f, gate);
+		leftCube->setPosition(vector3df(-2, 5.6f, -9.8f));
+		leftCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
+		leftCube->setMaterialFlag(video::EMF_LIGHTING, false);
+		leftCube->setMaterialTexture(0, pillarTex);
+
+		// Right pillar
+		IMeshSceneNode* rightCube = m_smgr->addCubeSceneNode(20.0f, gate);
+		rightCube->setPosition(vector3df(5.5f, 5.6f, -9.8f));
+		rightCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
+		rightCube->setMaterialFlag(video::EMF_LIGHTING, false);
+		rightCube->setMaterialTexture(0, pillarTex);
+
+		m_gatePositions.push_back(g.position);
+	}
 }
 
 void Game::setupHUD()
@@ -278,7 +331,7 @@ void Game::run()
 
 	while (m_device->run())
 	{
-		std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
+		//std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
 		if (!m_device->isWindowActive())
 		{
 			m_device->yield();

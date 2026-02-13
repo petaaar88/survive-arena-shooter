@@ -26,6 +26,7 @@ public:
 private:
 	void init();
 	void setupScene();
+	void setupGates(IMeshSceneNode* map);
 	void setupHUD();
 
 	void updatePlaying(f32 deltaTime);
@@ -65,5 +66,7 @@ private:
 	s32                m_centerY;
 
 	IGUIImage* crosshair = nullptr;
-	
+
+	// Gate spawn positions (for enemy spawning)
+	std::vector<vector3df> m_gatePositions;
 };
