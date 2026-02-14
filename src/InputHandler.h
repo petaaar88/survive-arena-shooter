@@ -6,7 +6,7 @@ using namespace irr;
 class InputHandler : public IEventReceiver
 {
 public:
-	InputHandler() : m_leftMouseDown(false), m_rightMouseDown(false), m_rightMousePressed(false)
+	InputHandler() : m_leftMouseDown(false), m_leftMousePressed(false), m_rightMouseDown(false), m_rightMousePressed(false)
 	{
 		for (u32 i = 0; i < KEY_KEY_CODES_COUNT; ++i)
 			m_keys[i] = false;
@@ -21,7 +21,10 @@ public:
 		else if (event.EventType == EET_MOUSE_INPUT_EVENT)
 		{
 			if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN)
+			{
 				m_leftMouseDown = true;
+				m_leftMousePressed = true;
+			}
 			else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP)
 				m_leftMouseDown = false;
 			else if (event.MouseInput.Event == EMIE_RMOUSE_PRESSED_DOWN)
@@ -50,6 +53,16 @@ public:
 		return false;
 	}
 
+	bool consumeLeftClick()
+	{
+		if (m_leftMousePressed)
+		{
+			m_leftMousePressed = false;
+			return true;
+		}
+		return false;
+	}
+
 	bool consumeRightClick()
 	{
 		if (m_rightMousePressed)
@@ -63,6 +76,7 @@ public:
 private:
 	bool m_keys[KEY_KEY_CODES_COUNT];
 	bool m_leftMouseDown;
+	bool m_leftMousePressed;
 	bool m_rightMouseDown;
 	bool m_rightMousePressed;
 };

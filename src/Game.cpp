@@ -42,7 +42,12 @@ Game::Game()
 	, m_waveText(nullptr)
 	, m_killText(nullptr)
 	, m_killCount(0)
-	, m_state(GameState::PLAYING)
+	, m_state(GameState::MENU)
+	, m_menuBgTex(nullptr)
+	, m_playBtnTex(nullptr)
+	, m_creditsBtnTex(nullptr)
+	, m_exitBtnTex(nullptr)
+	, m_resumeBtnTex(nullptr)
 	, m_cameraYaw(0.0f)
 	, m_lastTime(0)
 	, m_centerX(0)
@@ -99,7 +104,7 @@ void Game::init()
 		return;
 
 	m_device->setWindowCaption(L"Survive - Arena Shooter");
-	m_device->getCursorControl()->setVisible(false);
+	m_device->getCursorControl()->setVisible(true); // visible for menu
 
 	m_driver = m_device->getVideoDriver();
 	m_smgr = m_device->getSceneManager();
@@ -144,6 +149,33 @@ void Game::init()
 		m_pickups.push_back(p);
 	}
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
+
+	// Load menu textures
+	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
+	m_playBtnTex = m_driver->getTexture("assets/textures/UI/play.png");
+	m_creditsBtnTex = m_driver->getTexture("assets/textures/UI/credits.png");
+	m_exitBtnTex = m_driver->getTexture("assets/textures/UI/exit.png");
+	m_resumeBtnTex = m_driver->getTexture("assets/textures/UI/resume.png");
+
+	// Calculate button rects (centered on screen)
+	{
+		dimension2d<u32> ss = m_driver->getScreenSize();
+		s32 btnW = 200, btnH = 60, spacing = 20;
+		s32 cx = ss.Width / 2;
+		s32 startY = ss.Height / 2 - (3 * btnH + 2 * spacing) / 2;
+
+		m_playBtnRect = rect<s32>(cx - btnW/2, startY, cx + btnW/2, startY + btnH);
+		m_creditsBtnRect = rect<s32>(cx - btnW/2, startY + btnH + spacing, cx + btnW/2, startY + 2*btnH + spacing);
+		m_exitBtnRect = rect<s32>(cx - btnW/2, startY + 2*(btnH + spacing), cx + btnW/2, startY + 3*btnH + 2*spacing);
+
+		// Pause menu buttons
+		s32 pauseStartY = ss.Height / 2 - (2 * btnH + spacing) / 2;
+		m_resumeBtnRect = rect<s32>(cx - btnW/2, pauseStartY, cx + btnW/2, pauseStartY + btnH);
+		m_pauseExitBtnRect = rect<s32>(cx - btnW/2, pauseStartY + btnH + spacing, cx + btnW/2, pauseStartY + 2*btnH + spacing);
+	}
+
+	// Hide HUD initially (we start in MENU)
+	setHUDVisible(false);
 
 	m_lastTime = m_device->getTimer()->getTime();
 
@@ -476,13 +508,21 @@ void Game::run()
 		// Update based on state
 		switch (m_state)
 		{
+		case GameState::MENU:
+			updateMenu();
+			break;
 		case GameState::PLAYING:
 			updatePlaying(deltaTime);
+			break;
+		case GameState::PAUSED:
+			updatePaused();
+			break;
+		case GameState::CREDITS:
+			updateCredits();
 			break;
 		case GameState::GAMEOVER:
 			updateGameOver(deltaTime);
 			break;
-		case GameState::MENU:
 		case GameState::WIN:
 			break;
 		}
@@ -493,35 +533,56 @@ void Game::run()
 
 		// Render
 		m_driver->beginScene(true, true, SColor(0, 0, 0, 0));
-		m_smgr->drawAll();
 
-		// Debug: draw physics colliders and shooting ray
-		if (m_showDebug)
+		if (m_state == GameState::MENU || m_state == GameState::CREDITS)
 		{
-			m_debugDrawer->beginDraw();
-			m_physics->debugDrawWorld();
+			// Menu: draw background only (no 3D scene)
+			if (m_state == GameState::MENU)
+				drawMenu();
+			else
+				drawCredits();
+		}
+		else
+		{
+			// In-game: draw 3D scene
+			m_smgr->drawAll();
 
-			const auto& ray = m_player->getDebugRay();
-			if (ray.active)
+			if (m_showDebug)
 			{
-				video::SMaterial lineMat;
-				lineMat.Lighting = false;
-				lineMat.Thickness = 13.0f;
-				m_driver->setMaterial(lineMat);
-				m_driver->draw3DLine(ray.start, ray.end, SColor(255, 0, 100, 255));
+				m_debugDrawer->beginDraw();
+				m_physics->debugDrawWorld();
+
+				const auto& ray = m_player->getDebugRay();
+				if (ray.active)
+				{
+					video::SMaterial lineMat;
+					lineMat.Lighting = false;
+					lineMat.Thickness = 13.0f;
+					m_driver->setMaterial(lineMat);
+					m_driver->draw3DLine(ray.start, ray.end, SColor(255, 0, 100, 255));
+				}
 			}
+
+			m_gui->drawAll();
+
+			if (m_state == GameState::PAUSED)
+				drawPause();
 		}
 
-		m_gui->drawAll();
 		m_driver->endScene();
-
-		if (m_input.isKeyDown(KEY_ESCAPE))
-			m_device->closeDevice();
 	}
 }
 
 void Game::updatePlaying(f32 deltaTime)
 {
+	// ESC → pause
+	if (m_input.consumeKeyPress(KEY_ESCAPE))
+	{
+		m_state = GameState::PAUSED;
+		m_device->getCursorControl()->setVisible(true);
+		return;
+	}
+
 	// Mouse look
 	position2d<s32> cursorPos = m_device->getCursorControl()->getPosition();
 	f32 mouseDX = (f32)(cursorPos.X - m_centerX);
@@ -810,4 +871,160 @@ void Game::updateHUD()
 	wchar_t killStr[32];
 	swprintf(killStr, 32, L"Kills: %d", m_killCount);
 	m_killText->setText(killStr);
+}
+
+bool Game::isClickInRect(const rect<s32>& r) const
+{
+	position2d<s32> cursor = m_device->getCursorControl()->getPosition();
+	return r.isPointInside(cursor);
+}
+
+void Game::setHUDVisible(bool visible)
+{
+	if (m_ammoText) m_ammoText->setVisible(visible);
+	if (m_healthText) m_healthText->setVisible(visible);
+	if (m_timerText) m_timerText->setVisible(visible);
+	if (m_waveText) m_waveText->setVisible(visible);
+	if (m_killText) m_killText->setVisible(visible);
+	if (crosshair) crosshair->setVisible(false); // crosshair managed separately
+}
+
+void Game::updateMenu()
+{
+	if (m_input.consumeLeftClick())
+	{
+		if (isClickInRect(m_playBtnRect))
+		{
+			m_state = GameState::PLAYING;
+			m_device->getCursorControl()->setVisible(false);
+			m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+			setHUDVisible(true);
+		}
+		else if (isClickInRect(m_creditsBtnRect))
+		{
+			m_state = GameState::CREDITS;
+		}
+		else if (isClickInRect(m_exitBtnRect))
+		{
+			m_device->closeDevice();
+		}
+	}
+}
+
+void Game::updatePaused()
+{
+	if (m_input.consumeKeyPress(KEY_ESCAPE))
+	{
+		m_state = GameState::PLAYING;
+		m_device->getCursorControl()->setVisible(false);
+		m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+		return;
+	}
+
+	if (m_input.consumeLeftClick())
+	{
+		if (isClickInRect(m_resumeBtnRect))
+		{
+			m_state = GameState::PLAYING;
+			m_device->getCursorControl()->setVisible(false);
+			m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+		}
+		else if (isClickInRect(m_pauseExitBtnRect))
+		{
+			m_device->closeDevice();
+		}
+	}
+}
+
+void Game::updateCredits()
+{
+	if (m_input.consumeKeyPress(KEY_ESCAPE) || m_input.consumeLeftClick())
+	{
+		m_state = GameState::MENU;
+	}
+}
+
+void Game::drawMenu()
+{
+	dimension2d<u32> ss = m_driver->getScreenSize();
+
+	// Background
+	if (m_menuBgTex)
+	{
+		dimension2d<u32> texSize = m_menuBgTex->getOriginalSize();
+		m_driver->draw2DImage(m_menuBgTex,
+			rect<s32>(0, 0, ss.Width, ss.Height),
+			rect<s32>(0, 0, texSize.Width, texSize.Height));
+	}
+
+	// Buttons
+	if (m_playBtnTex)
+	{
+		dimension2d<u32> ts = m_playBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_playBtnTex, m_playBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+	if (m_creditsBtnTex)
+	{
+		dimension2d<u32> ts = m_creditsBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_creditsBtnTex, m_creditsBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+	if (m_exitBtnTex)
+	{
+		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_exitBtnTex, m_exitBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+}
+
+void Game::drawPause()
+{
+	dimension2d<u32> ss = m_driver->getScreenSize();
+
+	// Dark semi-transparent overlay
+	m_driver->draw2DRectangle(SColor(150, 0, 0, 0),
+		rect<s32>(0, 0, ss.Width, ss.Height));
+
+	// Resume button
+	if (m_resumeBtnTex)
+	{
+		dimension2d<u32> ts = m_resumeBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_resumeBtnTex, m_resumeBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+
+	// Exit button
+	if (m_exitBtnTex)
+	{
+		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_exitBtnTex, m_pauseExitBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+}
+
+void Game::drawCredits()
+{
+	dimension2d<u32> ss = m_driver->getScreenSize();
+
+	// Background
+	if (m_menuBgTex)
+	{
+		dimension2d<u32> texSize = m_menuBgTex->getOriginalSize();
+		m_driver->draw2DImage(m_menuBgTex,
+			rect<s32>(0, 0, ss.Width, ss.Height),
+			rect<s32>(0, 0, texSize.Width, texSize.Height));
+	}
+
+	// Credits text
+	IGUIFont* font = m_gui->getSkin()->getFont();
+	if (font)
+	{
+		font->draw(L"CREDITS", rect<s32>(0, ss.Height/4, ss.Width, ss.Height/4 + 40),
+			SColor(255, 255, 255, 255), true, true);
+		font->draw(L"Survive - Arena Shooter", rect<s32>(0, ss.Height/4 + 60, ss.Width, ss.Height/4 + 100),
+			SColor(255, 255, 200, 0), true, true);
+		font->draw(L"Click or press ESC to go back", rect<s32>(0, ss.Height - 80, ss.Width, ss.Height - 40),
+			SColor(255, 180, 180, 180), true, true);
+	}
 }

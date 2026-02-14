@@ -15,7 +15,7 @@ using namespace scene;
 using namespace video;
 using namespace gui;
 
-enum class GameState { MENU, PLAYING, GAMEOVER, WIN };
+enum class GameState { MENU, PLAYING, PAUSED, CREDITS, GAMEOVER, WIN };
 
 class Game
 {
@@ -30,11 +30,21 @@ private:
 	void setupGates(IMeshSceneNode* map);
 	void setupHUD();
 
+	void updateMenu();
 	void updatePlaying(f32 deltaTime);
+	void updatePaused();
+	void updateCredits();
 	void updateGameOver(f32 deltaTime);
 	void updateCamera();
 	void updateHUD();
 	void spawnEnemyAtGate(int gateIndex);
+	void setHUDVisible(bool visible);
+
+	void drawMenu();
+	void drawPause();
+	void drawCredits();
+
+	bool isClickInRect(const rect<s32>& r) const;
 
 	// Irrlicht core
 	IrrlichtDevice*    m_device;
@@ -85,4 +95,18 @@ private:
 	// Enemy audio
 	irrklang::ISoundEngine* m_soundEngine;
 	irrklang::ISound*       m_chasingSound;
+
+	// Menu textures
+	ITexture* m_menuBgTex;
+	ITexture* m_playBtnTex;
+	ITexture* m_creditsBtnTex;
+	ITexture* m_exitBtnTex;
+	ITexture* m_resumeBtnTex;
+
+	// Button rects (screen space)
+	rect<s32> m_playBtnRect;
+	rect<s32> m_creditsBtnRect;
+	rect<s32> m_exitBtnRect;
+	rect<s32> m_resumeBtnRect;
+	rect<s32> m_pauseExitBtnRect;
 };
