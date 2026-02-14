@@ -337,6 +337,12 @@ void Game::spawnEnemyAtGate(int gateIndex)
 	spawnPos.Y = 0.0f;
 
 	// Per-gate spawn position adjustments
+	if (gateIndex == 2)
+	{
+		spawnPos.X += 500.0f;               // shift +X
+		spawnPos.Z += 400.0f;               // shift backward (+Z)
+		forward = vector3df(0, 0, -1);      // face -Z
+	}
 	if (gateIndex == 3)
 	{
 		spawnPos.X += 700.0f;               // shift +X
