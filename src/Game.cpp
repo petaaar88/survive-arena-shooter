@@ -44,6 +44,7 @@ Game::Game()
 	, m_killCount(0)
 	, m_state(GameState::MENU)
 	, m_menuBgTex(nullptr)
+	, m_logoTex(nullptr)
 	, m_playBtnTex(nullptr)
 	, m_creditsBtnTex(nullptr)
 	, m_exitBtnTex(nullptr)
@@ -152,6 +153,7 @@ void Game::init()
 
 	// Load menu textures
 	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
+	m_logoTex = m_driver->getTexture("assets/textures/UI/logo.png");
 	m_playBtnTex = m_driver->getTexture("assets/textures/UI/play.png");
 	m_creditsBtnTex = m_driver->getTexture("assets/textures/UI/credits.png");
 	m_exitBtnTex = m_driver->getTexture("assets/textures/UI/exit.png");
@@ -162,11 +164,20 @@ void Game::init()
 		dimension2d<u32> ss = m_driver->getScreenSize();
 		s32 btnW = 200, btnH = 60, spacing = 20;
 		s32 cx = ss.Width / 2;
-		s32 startY = ss.Height / 2 - (3 * btnH + 2 * spacing) / 2;
 
-		m_playBtnRect = rect<s32>(cx - btnW/2, startY, cx + btnW/2, startY + btnH);
-		m_creditsBtnRect = rect<s32>(cx - btnW/2, startY + btnH + spacing, cx + btnW/2, startY + 2*btnH + spacing);
-		m_exitBtnRect = rect<s32>(cx - btnW/2, startY + 2*(btnH + spacing), cx + btnW/2, startY + 3*btnH + 2*spacing);
+		// Logo at top area
+		s32 logoW = 400, logoH = 150;
+		s32 logoY = 120;
+		m_logoRect = rect<s32>(cx - logoW/2, logoY, cx + logoW/2, logoY + logoH);
+
+		// Play and Credits grouped together below logo
+		s32 groupStartY = logoY + logoH + 40;
+		m_playBtnRect = rect<s32>(cx - btnW/2, groupStartY, cx + btnW/2, groupStartY + btnH);
+		m_creditsBtnRect = rect<s32>(cx - btnW/2, groupStartY + btnH + spacing, cx + btnW/2, groupStartY + 2*btnH + spacing);
+
+		// Exit button lower, separated from the group
+		s32 exitY = ss.Height - btnH - 60;
+		m_exitBtnRect = rect<s32>(cx - btnW/2, exitY, cx + btnW/2, exitY + btnH);
 
 		// Pause menu buttons
 		s32 pauseStartY = ss.Height / 2 - (2 * btnH + spacing) / 2;
@@ -931,9 +942,34 @@ void Game::updateMenu()
 	{
 		if (isClickInRect(m_playBtnRect))
 		{
+			// Show loading screen for 2 seconds
+			{
+				dimension2d<u32> ss = m_driver->getScreenSize();
+				u32 startMs = m_device->getTimer()->getTime();
+				while (m_device->run() && (m_device->getTimer()->getTime() - startMs) < 2000)
+				{
+					m_driver->beginScene(true, true, SColor(0, 0, 0, 0));
+					if (m_menuBgTex)
+					{
+						dimension2d<u32> ts = m_menuBgTex->getOriginalSize();
+						m_driver->draw2DImage(m_menuBgTex, rect<s32>(0, 0, ss.Width, ss.Height),
+							rect<s32>(0, 0, ts.Width, ts.Height));
+					}
+					IGUIFont* font = m_gui->getSkin()->getFont();
+					if (font)
+					{
+						font->draw(L"Loading...",
+							rect<s32>(30, ss.Height - 60, 300, ss.Height - 20),
+							SColor(255, 255, 255, 255), false, false);
+					}
+					m_driver->endScene();
+				}
+			}
+
 			m_state = GameState::PLAYING;
 			m_device->getCursorControl()->setVisible(false);
 			m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+			m_lastTime = m_device->getTimer()->getTime();
 			setHUDVisible(true);
 		}
 		else if (isClickInRect(m_creditsBtnRect))
@@ -991,6 +1027,14 @@ void Game::drawMenu()
 		m_driver->draw2DImage(m_menuBgTex,
 			rect<s32>(0, 0, ss.Width, ss.Height),
 			rect<s32>(0, 0, texSize.Width, texSize.Height));
+	}
+
+	// Logo
+	if (m_logoTex)
+	{
+		dimension2d<u32> ts = m_logoTex->getOriginalSize();
+		m_driver->draw2DImage(m_logoTex, m_logoRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
 
 	// Buttons

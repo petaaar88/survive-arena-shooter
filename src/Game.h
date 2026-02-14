@@ -101,12 +101,14 @@ private:
 
 	// Menu textures
 	ITexture* m_menuBgTex;
+	ITexture* m_logoTex;
 	ITexture* m_playBtnTex;
 	ITexture* m_creditsBtnTex;
 	ITexture* m_exitBtnTex;
 	ITexture* m_resumeBtnTex;
 
-	// Button rects (screen space)
+	// Logo + Button rects (screen space)
+	rect<s32> m_logoRect;
 	rect<s32> m_playBtnRect;
 	rect<s32> m_creditsBtnRect;
 	rect<s32> m_exitBtnRect;
