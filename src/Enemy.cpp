@@ -21,7 +21,7 @@ static const f32 SALUTE_COOLDOWN_MIN = 3.0f;
 static const f32 SALUTE_COOLDOWN_MAX = 8.0f;
 
 // Enemy SFX volumes (0.0 = silent, 1.0 = max)
-static const f32 ENEMY_SFX_SALUTE_VOLUME = 0.5f;
+static const f32 ENEMY_SFX_SALUTE_VOLUME = 0.3f;
 static const f32 ENEMY_SFX_ATTACK_VOLUME = 0.5f;
 static const f32 ENEMY_SFX_HURT_VOLUME   = 0.5f;
 static const f32 ENEMY_SFX_DEATH_VOLUME  = 0.6f;

@@ -5,7 +5,7 @@
 static const f32 MOUSE_SENSITIVITY = 0.2f;
 static const f32 CAMERA_DISTANCE = 120.0f;
 static const f32 CAMERA_HEIGHT = 30.0f;
-static const f32 ENEMY_CHASING_VOLUME = 0.4f;
+static const f32 ENEMY_CHASING_VOLUME = 0.2f;
 
 // Wave system
 static const f32 GAME_DURATION = 180.0f;
@@ -18,6 +18,10 @@ static const f32 WAVE1_SPAWN_INTERVAL = 5.0f;
 static const f32 WAVE2_SPAWN_INTERVAL = 3.0f;
 static const f32 WAVE3_SPAWN_INTERVAL = 2.0f;
 
+// Pickup system
+static const f32 PICKUP_SPAWN_MIN = 5.0f;
+static const f32 PICKUP_SPAWN_MAX = 15.0f;
+
 Game::Game()
 	: m_device(nullptr)
 	, m_driver(nullptr)
@@ -28,7 +32,7 @@ Game::Game()
 	, m_groundBody(nullptr)
 	, m_showDebug(true)
 	, m_player(nullptr)
-	, m_ammoPickup(nullptr)
+	, m_pickupSpawnTimer(0.0f)
 	, m_camera(nullptr)
 	, m_ground(nullptr)
 	, m_ammoText(nullptr)
@@ -64,8 +68,8 @@ Game::~Game()
 		m_soundEngine = nullptr;
 	}
 
-	delete m_ammoPickup;
-	m_ammoPickup = nullptr;
+	for (Pickup* p : m_pickups) delete p;
+	m_pickups.clear();
 
 	for (Enemy* e : m_enemies) delete e;
 	m_enemies.clear();
@@ -120,7 +124,23 @@ void Game::init()
 	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, -200)));
 	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(300, 0, 0)));
 	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-300, 0, 0)));
-	m_ammoPickup = new Pickup(m_smgr, m_driver, m_physics, vector3df(-100, -25, -100), PickupType::AMMO);
+	// Multiple ammo pickup spawn positions
+	vector3df pickupPositions[] = {
+		vector3df(-400, -25, -300),
+		vector3df( 400, -25,  300),
+		vector3df(-400, -25,  300),
+		vector3df( 400, -25, -300),
+		vector3df(   0, -25,    0),
+		vector3df( 500, -25,    0),
+	};
+
+	for (const auto& pos : pickupPositions)
+	{
+		Pickup* p = new Pickup(m_smgr, m_driver, m_physics, pos, PickupType::AMMO);
+		p->setCollected(true); // start hidden
+		m_pickups.push_back(p);
+	}
+	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
 	m_lastTime = m_device->getTimer()->getTime();
 
@@ -665,16 +685,35 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 7. Check ammo pickup overlap
-	if (m_ammoPickup)
+	// 7. Pickup spawn timer — randomly respawn a hidden pickup
+	m_pickupSpawnTimer -= deltaTime;
+	if (m_pickupSpawnTimer <= 0.0f)
 	{
-		m_ammoPickup->update(deltaTime);
-		if (!m_ammoPickup->isCollected()
-			&& m_ammoPickup->getTrigger() && m_player->getBody()
-			&& m_physics->isGhostOverlapping(m_ammoPickup->getTrigger(), m_player->getBody()))
+		// Collect indices of all hidden pickups
+		std::vector<int> hiddenIndices;
+		for (int i = 0; i < (int)m_pickups.size(); i++)
+		{
+			if (m_pickups[i]->isCollected())
+				hiddenIndices.push_back(i);
+		}
+		if (!hiddenIndices.empty())
+		{
+			int pick = hiddenIndices[rand() % hiddenIndices.size()];
+			m_pickups[pick]->respawn();
+		}
+		m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
+	}
+
+	// 8. Check pickup overlap for all pickups
+	for (Pickup* p : m_pickups)
+	{
+		p->update(deltaTime);
+		if (!p->isCollected()
+			&& p->getTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(p->getTrigger(), m_player->getBody()))
 		{
 			m_player->addAmmo(30);
-			m_ammoPickup->collect();
+			p->collect();
 		}
 	}
 

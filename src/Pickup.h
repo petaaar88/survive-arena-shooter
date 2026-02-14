@@ -20,6 +20,8 @@ public:
 	void update(f32 deltaTime) override;
 
 	void collect();
+	void respawn();
+	void setCollected(bool collected);
 	bool isCollected() const { return m_collected; }
 	PickupType getType() const { return m_type; }
 	btGhostObject* getTrigger() const { return m_trigger; }

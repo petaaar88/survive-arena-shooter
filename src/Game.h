@@ -52,7 +52,8 @@ private:
 	// Game objects
 	Player*            m_player;
 	std::vector<Enemy*> m_enemies;
-	Pickup*            m_ammoPickup;
+	std::vector<Pickup*> m_pickups;
+	f32                m_pickupSpawnTimer;
 	ICameraSceneNode*  m_camera;
 	ISceneNode*        m_ground;
 

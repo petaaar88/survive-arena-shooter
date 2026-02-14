@@ -59,16 +59,7 @@ Pickup::~Pickup()
 void Pickup::update(f32 deltaTime)
 {
 	if (m_collected)
-	{
-		m_respawnTimer -= deltaTime;
-		if (m_respawnTimer <= 0)
-		{
-			m_collected = false;
-			if (m_node)
-				m_node->setVisible(true);
-		}
 		return;
-	}
 
 	// Rotate the pickup visually
 	if (m_node)
@@ -82,7 +73,21 @@ void Pickup::update(f32 deltaTime)
 void Pickup::collect()
 {
 	m_collected = true;
-	m_respawnTimer = PICKUP_RESPAWN_TIME;
+	m_respawnTimer = 0.0f; // respawn controlled externally by Game
 	if (m_node)
 		m_node->setVisible(false);
+}
+
+void Pickup::respawn()
+{
+	m_collected = false;
+	if (m_node)
+		m_node->setVisible(true);
+}
+
+void Pickup::setCollected(bool collected)
+{
+	m_collected = collected;
+	if (m_node)
+		m_node->setVisible(!collected);
 }

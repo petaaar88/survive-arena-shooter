@@ -4,7 +4,7 @@
 static const f32 PLAYER_SPEED = 200.0f;
 static const f32 GUN_FIRE_RATE = 0.8f;
 static const f32 ATTACK_ANIM_DURATION = 0.5f;
-static const f32 SHOOT_RANGE = 1000.0f;
+static const f32 SHOOT_RANGE = 300.0f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
 static const s32 PLAYER_AMMO_START = 115;
 static const s32 PLAYER_HEALTH_START = 100;
