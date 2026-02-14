@@ -1,5 +1,6 @@
 #pragma once
 #include <irrlicht.h>
+#include <irrklang.h>
 #include <vector>
 #include "InputHandler.h"
 #include "Physics.h"
@@ -33,6 +34,7 @@ private:
 	void updateGameOver(f32 deltaTime);
 	void updateCamera();
 	void updateHUD();
+	void spawnEnemyAtGate(int gateIndex);
 
 	// Irrlicht core
 	IrrlichtDevice*    m_device;
@@ -69,4 +71,8 @@ private:
 
 	// Gate spawn positions (for enemy spawning)
 	std::vector<vector3df> m_gatePositions;
+
+	// Enemy audio
+	irrklang::ISoundEngine* m_soundEngine;
+	irrklang::ISound*       m_chasingSound;
 };

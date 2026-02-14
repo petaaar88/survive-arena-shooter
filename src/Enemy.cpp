@@ -20,10 +20,18 @@ static const f32 SALUTE_DURATION = 2.0f;
 static const f32 SALUTE_COOLDOWN_MIN = 3.0f;
 static const f32 SALUTE_COOLDOWN_MAX = 8.0f;
 
-Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos)
+// Enemy SFX volumes (0.0 = silent, 1.0 = max)
+static const f32 ENEMY_SFX_SALUTE_VOLUME = 0.5f;
+static const f32 ENEMY_SFX_ATTACK_VOLUME = 0.5f;
+static const f32 ENEMY_SFX_HURT_VOLUME   = 0.5f;
+static const f32 ENEMY_SFX_DEATH_VOLUME  = 0.6f;
+
+Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos, const vector3df& forward, irrklang::ISoundEngine* soundEngine)
 	: GameObject(nullptr, nullptr)
 	, m_smgr(smgr)
+	, m_driver(driver)
 	, m_physics(physics)
+	, m_soundEngine(soundEngine)
 	, m_animNode(nullptr)
 	, m_rotationY(0.0f)
 	, m_state(EnemyState::IDLE)
@@ -46,7 +54,13 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	, m_saluteTimer(0.0f)
 	, m_saluteCooldown(SALUTE_COOLDOWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (SALUTE_COOLDOWN_MAX - SALUTE_COOLDOWN_MIN))
 	, m_saluteAllowed(false)
+	, m_spawnForward(forward)
+	, m_spawnWalkDistance(150.0f)
+	, m_spawnDistanceTraveled(0.0f)
+	, m_physicsCreated(false)
 {
+	bool isGateSpawn = (forward.getLength() > 0.01f);
+
 	IAnimatedMesh* mesh = smgr->getMesh("assets/models/enemy/tris.md2");
 	if (mesh)
 	{
@@ -56,39 +70,63 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 			m_animNode->setMaterialTexture(0, driver->getTexture("assets/models/enemy/ctf_r.pcx"));
 			m_animNode->setMaterialFlag(EMF_LIGHTING, false);
 			m_animNode->setPosition(spawnPos);
-			m_animNode->setMD2Animation(EMAT_STAND);
+
+			if (isGateSpawn)
+				m_animNode->setMD2Animation(EMAT_RUN);
+			else
+				m_animNode->setMD2Animation(EMAT_STAND);
 		}
 	}
 
-	// Create dynamic Bullet capsule
+	m_node = m_animNode;
+
+	if (isGateSpawn)
+	{
+		// Gate spawn: no physics yet, walk in first
+		m_state = EnemyState::SPAWNING;
+		m_rotationY = atan2f(forward.X, forward.Z) * core::RADTODEG;
+	}
+	else
+	{
+		// Normal spawn: create physics immediately
+		createPhysicsBody(spawnPos);
+	}
+}
+
+void Enemy::createPhysicsBody(const vector3df& pos)
+{
 	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
-	m_body = physics->createRigidBody(10.0f, capsule, spawnPos);
+	m_body = m_physics->createRigidBody(10.0f, capsule, pos);
 	m_body->setAngularFactor(btVector3(0, 0, 0));
 	m_body->setActivationState(DISABLE_DEACTIVATION);
 	m_body->setUserPointer(this);
 
-	m_node = m_animNode;
-
-	// Create attack trigger ghost object (positioned in front of enemy)
 	m_attackShape = new btSphereShape(ATTACK_TRIGGER_RADIUS);
 	m_attackTrigger = new btGhostObject();
 	m_attackTrigger->setCollisionShape(m_attackShape);
 	m_attackTrigger->setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
 	btTransform triggerTransform;
 	triggerTransform.setIdentity();
-	triggerTransform.setOrigin(toBullet(spawnPos));
+	triggerTransform.setOrigin(toBullet(pos));
 	m_attackTrigger->setWorldTransform(triggerTransform);
-	physics->addGhostObject(m_attackTrigger);
+	m_physics->addGhostObject(m_attackTrigger);
+
+	m_physicsCreated = true;
 }
 
 Enemy::~Enemy()
 {
-	if (m_attackTrigger)
+	if (m_physicsCreated)
 	{
-		m_physics->removeGhostObject(m_attackTrigger);
-		delete m_attackTrigger;
+		if (m_body)
+			m_physics->removeRigidBody(m_body);
+		if (m_attackTrigger)
+		{
+			m_physics->removeGhostObject(m_attackTrigger);
+			delete m_attackTrigger;
+		}
+		delete m_attackShape;
 	}
-	delete m_attackShape;
 
 	if (m_animNode)
 		m_animNode->remove();
@@ -96,13 +134,14 @@ Enemy::~Enemy()
 
 void Enemy::update(f32 deltaTime)
 {
-	// Sync Bullet transform → Irrlicht node
-	syncPhysicsToNode();
+	if (m_physicsCreated)
+	{
+		syncPhysicsToNode();
+		updateAttackTrigger();
+	}
 
 	if (m_animNode)
 		m_animNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
-
-	updateAttackTrigger();
 }
 
 void Enemy::updateAttackTrigger()
@@ -160,6 +199,43 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		}
 	}
 
+	// Handle spawning states before physics-dependent code
+	if (m_state == EnemyState::SPAWNING)
+	{
+		f32 step = ENEMY_SPEED * deltaTime;
+		vector3df currentPos = m_animNode->getPosition();
+		currentPos += m_spawnForward * step;
+		m_animNode->setPosition(currentPos);
+		m_spawnDistanceTraveled += step;
+
+		if (m_spawnDistanceTraveled >= m_spawnWalkDistance)
+		{
+			createPhysicsBody(currentPos);
+			m_state = EnemyState::SALUTING;
+			m_saluteTimer = SALUTE_DURATION;
+			if (m_animNode) m_animNode->setMD2Animation(EMAT_SALUTE);
+			if (m_soundEngine)
+			{
+				irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/salute.mp3", false, true, true);
+				if (s) { s->setVolume(ENEMY_SFX_SALUTE_VOLUME); s->setIsPaused(false); s->drop(); }
+			}
+		}
+		return;
+	}
+
+	if (m_state == EnemyState::SALUTING)
+	{
+		if (m_body)
+			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+		m_saluteTimer -= deltaTime;
+		if (m_saluteTimer <= 0)
+		{
+			m_state = EnemyState::CHASE;
+			m_isMoving = false;
+		}
+		return;
+	}
+
 	vector3df pos = getPosition();
 	f32 distToPlayer = pos.getDistanceFrom(playerPos);
 
@@ -201,6 +277,11 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 			if (m_body)
 				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 			if (m_animNode) m_animNode->setMD2Animation(EMAT_SALUTE);
+			if (m_soundEngine)
+			{
+				irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/salute.mp3", false, true, true);
+				if (s) { s->setVolume(ENEMY_SFX_SALUTE_VOLUME); s->setIsPaused(false); s->drop(); }
+			}
 			break;
 		}
 
@@ -349,6 +430,30 @@ void Enemy::takeDamage(s32 amount)
 			m_animNode->setMD2Animation(EMAT_DEATH_FALLBACK);
 			m_animNode->setLoopMode(false);
 		}
+
+		// Remove physics body and attack trigger so dead enemy doesn't block anything
+		if (m_physicsCreated)
+		{
+			if (m_body)
+			{
+				m_physics->removeRigidBody(m_body);
+				m_body = nullptr;
+			}
+			if (m_attackTrigger)
+			{
+				m_physics->removeGhostObject(m_attackTrigger);
+				delete m_attackTrigger;
+				m_attackTrigger = nullptr;
+			}
+			delete m_attackShape;
+			m_attackShape = nullptr;
+		}
+
+		if (m_soundEngine)
+		{
+			irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/death.mp3", false, true, true);
+			if (s) { s->setVolume(ENEMY_SFX_DEATH_VOLUME); s->setIsPaused(false); s->drop(); }
+		}
 	}
 	else
 	{
@@ -360,6 +465,11 @@ void Enemy::takeDamage(s32 amount)
 
 		if (m_animNode)
 			m_animNode->setMD2Animation(EMAT_PAIN_A);
+		if (m_soundEngine)
+		{
+			irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/hurt.mp3", false, true, true);
+			if (s) { s->setVolume(ENEMY_SFX_HURT_VOLUME); s->setIsPaused(false); s->drop(); }
+		}
 	}
 }
 
@@ -376,4 +486,9 @@ s32 Enemy::getAttackDamage() const
 void Enemy::resetAttackCooldown()
 {
 	m_attackCooldown = ENEMY_ATTACK_COOLDOWN;
+	if (m_soundEngine)
+	{
+		irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/attack.mp3", false, true, true);
+		if (s) { s->setVolume(ENEMY_SFX_ATTACK_VOLUME); s->setIsPaused(false); s->drop(); }
+	}
 }

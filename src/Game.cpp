@@ -5,6 +5,7 @@
 static const f32 MOUSE_SENSITIVITY = 0.2f;
 static const f32 CAMERA_DISTANCE = 120.0f;
 static const f32 CAMERA_HEIGHT = 30.0f;
+static const f32 ENEMY_CHASING_VOLUME = 0.4f;
 
 Game::Game()
 	: m_device(nullptr)
@@ -26,12 +27,27 @@ Game::Game()
 	, m_lastTime(0)
 	, m_centerX(0)
 	, m_centerY(0)
+	, m_soundEngine(nullptr)
+	, m_chasingSound(nullptr)
 {
+	m_soundEngine = irrklang::createIrrKlangDevice();
 	init();
 }
 
 Game::~Game()
 {
+	if (m_chasingSound)
+	{
+		m_chasingSound->stop();
+		m_chasingSound->drop();
+		m_chasingSound = nullptr;
+	}
+	if (m_soundEngine)
+	{
+		m_soundEngine->drop();
+		m_soundEngine = nullptr;
+	}
+
 	delete m_ammoPickup;
 	m_ammoPickup = nullptr;
 
@@ -157,7 +173,7 @@ void Game::setupScene()
 {
 	// Camera
 	m_camera = m_smgr->addCameraSceneNode();
-	m_camera->setFarValue(18000.0f);
+	m_camera->setFarValue(20000.0f);
 	// Ground plane (visual)
 	m_ground = m_smgr->addCubeSceneNode(10.0f);
 	if (m_ground)
@@ -237,8 +253,8 @@ void Game::setupGates(IMeshSceneNode* map)
 	struct GateData { vector3df position; f32 rotationY; };
 	GateData gates[] =
 	{
-		{ vector3df( -7, -25,    0),  90.0f },  // +X edge, face inward
-		{ vector3df( 105, -25,    0), -90.0f },  // -X edge, face inward
+		{ vector3df( -7, -25,  -5),  90.0f },  // +X edge, face inward
+		{ vector3df( 105, -25,  5), -90.0f },  // -X edge, face inward
 		{ vector3df(    0, -25, 38), 180.0f },  // +Z edge, face inward
 		{ vector3df(    0, -25,-38),   0.0f },  // -Z edge, face inward
 	};
@@ -276,8 +292,35 @@ void Game::setupGates(IMeshSceneNode* map)
 		rightCube->setMaterialFlag(video::EMF_LIGHTING, false);
 		rightCube->setMaterialTexture(0, pillarTex);
 
-		m_gatePositions.push_back(g.position);
+		// Convert local gate position to world space
+		vector3df mapPos = map->getPosition();
+		vector3df mapScale = map->getScale();
+		vector3df worldPos(
+			mapPos.X + g.position.X * mapScale.X,
+			0.0f,  // above ground (ground is at -25)
+			mapPos.Z + g.position.Z * mapScale.Z
+		);
+		m_gatePositions.push_back(worldPos);
 	}
+}
+
+void Game::spawnEnemyAtGate(int gateIndex)
+{
+	if (gateIndex < 0 || gateIndex >= (int)m_gatePositions.size())
+		return;
+
+	static const f32 SPAWN_OFFSET = 700.0f; // how far behind the gate the enemy spawns
+
+	vector3df gatePos = m_gatePositions[gateIndex];
+	vector3df forward = vector3df(0, 0, 0) - gatePos;
+	forward.Y = 0;
+	forward.normalize();
+
+	// Spawn behind the gate, enemy walks forward through it
+	vector3df spawnPos = gatePos - forward * SPAWN_OFFSET;
+	spawnPos.Y = 0.0f;
+
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine));
 }
 
 void Game::setupHUD()
@@ -399,6 +442,12 @@ void Game::updatePlaying(f32 deltaTime)
 	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
+	// Test spawn keys
+	if (m_input.consumeKeyPress(KEY_KEY_1)) spawnEnemyAtGate(0);
+	if (m_input.consumeKeyPress(KEY_KEY_2)) spawnEnemyAtGate(1);
+	if (m_input.consumeKeyPress(KEY_KEY_3)) spawnEnemyAtGate(2);
+	if (m_input.consumeKeyPress(KEY_KEY_4)) spawnEnemyAtGate(3);
+
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
@@ -446,6 +495,35 @@ void Game::updatePlaying(f32 deltaTime)
 	// Update enemy AI (sets velocities)
 	for (Enemy* enemy : m_enemies)
 		enemy->updateAI(deltaTime, m_player->getPosition());
+
+	// Chasing sound: play looping while at least one enemy is chasing
+	{
+		bool anyChasing = false;
+		for (Enemy* enemy : m_enemies)
+		{
+			if (!enemy->isDead() && enemy->getState() == EnemyState::CHASE && !enemy->isSaluting())
+			{
+				anyChasing = true;
+				break;
+			}
+		}
+
+		if (anyChasing && m_soundEngine)
+		{
+			if (!m_chasingSound || m_chasingSound->isFinished())
+			{
+				if (m_chasingSound) { m_chasingSound->drop(); m_chasingSound = nullptr; }
+				m_chasingSound = m_soundEngine->play2D("assets/audio/enemies/chasing.mp3", true, true, true);
+				if (m_chasingSound) { m_chasingSound->setVolume(ENEMY_CHASING_VOLUME); m_chasingSound->setIsPaused(false); }
+			}
+		}
+		else if (m_chasingSound)
+		{
+			m_chasingSound->stop();
+			m_chasingSound->drop();
+			m_chasingSound = nullptr;
+		}
+	}
 
 	// 3. Step physics simulation
 	m_physics->stepSimulation(deltaTime);

@@ -1,5 +1,6 @@
 #pragma once
 #include <irrlicht.h>
+#include <irrklang.h>
 #include "GameObject.h"
 #include "Physics.h"
 
@@ -8,12 +9,14 @@ using namespace core;
 using namespace scene;
 using namespace video;
 
-enum class EnemyState { IDLE, CHASE, WAIT_ATTACK, ATTACK, DEAD };
+enum class EnemyState { SPAWNING, SALUTING, IDLE, CHASE, WAIT_ATTACK, ATTACK, DEAD };
 
 class Enemy : public GameObject
 {
 public:
-	Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos);
+	Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos,
+		  const vector3df& forward = vector3df(0, 0, 0),
+		  irrklang::ISoundEngine* soundEngine = nullptr);
 	~Enemy();
 
 	void update(f32 deltaTime) override;
@@ -35,8 +38,12 @@ public:
 
 private:
 	void updateAttackTrigger();
+	void createPhysicsBody(const vector3df& pos);
+
 	ISceneManager* m_smgr;
+	IVideoDriver* m_driver;
 	Physics* m_physics;
+	irrklang::ISoundEngine* m_soundEngine;
 	IAnimatedMeshSceneNode* m_animNode;
 
 	f32 m_rotationY;
@@ -68,4 +75,10 @@ private:
 	f32  m_saluteTimer;
 	f32  m_saluteCooldown;
 	bool m_saluteAllowed;
+
+	// Gate spawn
+	vector3df m_spawnForward;
+	f32 m_spawnWalkDistance;
+	f32 m_spawnDistanceTraveled;
+	bool m_physicsCreated;
 };
