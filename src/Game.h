@@ -35,6 +35,7 @@ private:
 	void updatePaused();
 	void updateCredits();
 	void updateGameOver(f32 deltaTime);
+	void updateWin(f32 deltaTime);
 	void updateCamera();
 	void updateHUD();
 	void spawnEnemyAtGate(int gateIndex);
@@ -43,6 +44,8 @@ private:
 	void drawMenu();
 	void drawPause();
 	void drawCredits();
+	void drawGameOver();
+	void drawWin();
 
 	bool isClickInRect(const rect<s32>& r) const;
 
@@ -109,4 +112,5 @@ private:
 	rect<s32> m_exitBtnRect;
 	rect<s32> m_resumeBtnRect;
 	rect<s32> m_pauseExitBtnRect;
+	rect<s32> m_endScreenExitBtnRect;
 };

@@ -172,6 +172,10 @@ void Game::init()
 		s32 pauseStartY = ss.Height / 2 - (2 * btnH + spacing) / 2;
 		m_resumeBtnRect = rect<s32>(cx - btnW/2, pauseStartY, cx + btnW/2, pauseStartY + btnH);
 		m_pauseExitBtnRect = rect<s32>(cx - btnW/2, pauseStartY + btnH + spacing, cx + btnW/2, pauseStartY + 2*btnH + spacing);
+
+		// Game over / win exit button (below center)
+		s32 endExitY = ss.Height / 2 + 80;
+		m_endScreenExitBtnRect = rect<s32>(cx - btnW/2, endExitY, cx + btnW/2, endExitY + btnH);
 	}
 
 	// Hide HUD initially (we start in MENU)
@@ -524,6 +528,7 @@ void Game::run()
 			updateGameOver(deltaTime);
 			break;
 		case GameState::WIN:
+			updateWin(deltaTime);
 			break;
 		}
 
@@ -567,6 +572,10 @@ void Game::run()
 
 			if (m_state == GameState::PAUSED)
 				drawPause();
+			else if (m_state == GameState::GAMEOVER)
+				drawGameOver();
+			else if (m_state == GameState::WIN)
+				drawWin();
 		}
 
 		m_driver->endScene();
@@ -601,6 +610,14 @@ void Game::updatePlaying(f32 deltaTime)
 	{
 		m_gameTimer = 0.0f;
 		m_state = GameState::WIN;
+		m_device->getCursorControl()->setVisible(true);
+		setHUDVisible(false);
+		if (m_chasingSound)
+		{
+			m_chasingSound->stop();
+			m_chasingSound->drop();
+			m_chasingSound = nullptr;
+		}
 		return;
 	}
 
@@ -816,6 +833,14 @@ void Game::updatePlaying(f32 deltaTime)
 	if (m_player->isDead())
 	{
 		m_state = GameState::GAMEOVER;
+		m_device->getCursorControl()->setVisible(true);
+		setHUDVisible(false);
+		if (m_chasingSound)
+		{
+			m_chasingSound->stop();
+			m_chasingSound->drop();
+			m_chasingSound = nullptr;
+		}
 		return;
 	}
 
@@ -829,7 +854,18 @@ void Game::updatePlaying(f32 deltaTime)
 
 void Game::updateGameOver(f32 deltaTime)
 {
-	// Camera stays fixed on dead player, no mouse look
+	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
+	{
+		m_device->closeDevice();
+	}
+}
+
+void Game::updateWin(f32 deltaTime)
+{
+	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
+	{
+		m_device->closeDevice();
+	}
 }
 
 void Game::updateCamera()
@@ -1026,5 +1062,61 @@ void Game::drawCredits()
 			SColor(255, 255, 200, 0), true, true);
 		font->draw(L"Click or press ESC to go back", rect<s32>(0, ss.Height - 80, ss.Width, ss.Height - 40),
 			SColor(255, 180, 180, 180), true, true);
+	}
+}
+
+void Game::drawGameOver()
+{
+	dimension2d<u32> ss = m_driver->getScreenSize();
+
+	// Dark overlay
+	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
+		rect<s32>(0, 0, ss.Width, ss.Height));
+
+	IGUIFont* font = m_gui->getSkin()->getFont();
+	if (font)
+	{
+		font->draw(L"GAME OVER", rect<s32>(0, ss.Height/2 - 80, ss.Width, ss.Height/2 - 40),
+			SColor(255, 255, 50, 50), true, true);
+
+		wchar_t killStr[64];
+		swprintf(killStr, 64, L"Kills: %d", m_killCount);
+		font->draw(killStr, rect<s32>(0, ss.Height/2 - 20, ss.Width, ss.Height/2 + 20),
+			SColor(255, 255, 255, 255), true, true);
+	}
+
+	if (m_exitBtnTex)
+	{
+		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_exitBtnTex, m_endScreenExitBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+}
+
+void Game::drawWin()
+{
+	dimension2d<u32> ss = m_driver->getScreenSize();
+
+	// Dark overlay
+	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
+		rect<s32>(0, 0, ss.Width, ss.Height));
+
+	IGUIFont* font = m_gui->getSkin()->getFont();
+	if (font)
+	{
+		font->draw(L"YOU SURVIVED!", rect<s32>(0, ss.Height/2 - 80, ss.Width, ss.Height/2 - 40),
+			SColor(255, 50, 255, 50), true, true);
+
+		wchar_t killStr[64];
+		swprintf(killStr, 64, L"Kills: %d", m_killCount);
+		font->draw(killStr, rect<s32>(0, ss.Height/2 - 20, ss.Width, ss.Height/2 + 20),
+			SColor(255, 255, 255, 255), true, true);
+	}
+
+	if (m_exitBtnTex)
+	{
+		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_exitBtnTex, m_endScreenExitBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
 }
