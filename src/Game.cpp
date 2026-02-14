@@ -7,6 +7,17 @@ static const f32 CAMERA_DISTANCE = 120.0f;
 static const f32 CAMERA_HEIGHT = 30.0f;
 static const f32 ENEMY_CHASING_VOLUME = 0.4f;
 
+// Wave system
+static const f32 GAME_DURATION = 180.0f;
+static const f32 WAVE1_TIME = 120.0f;  // wave 1 while timer > 120
+static const f32 WAVE2_TIME = 60.0f;   // wave 2 while timer > 60
+static const s32 WAVE1_MAX = 3;
+static const s32 WAVE2_MAX = 6;
+static const s32 WAVE3_MAX = 10;
+static const f32 WAVE1_SPAWN_INTERVAL = 5.0f;
+static const f32 WAVE2_SPAWN_INTERVAL = 3.0f;
+static const f32 WAVE3_SPAWN_INTERVAL = 2.0f;
+
 Game::Game()
 	: m_device(nullptr)
 	, m_driver(nullptr)
@@ -22,6 +33,8 @@ Game::Game()
 	, m_ground(nullptr)
 	, m_ammoText(nullptr)
 	, m_healthText(nullptr)
+	, m_timerText(nullptr)
+	, m_waveText(nullptr)
 	, m_state(GameState::PLAYING)
 	, m_cameraYaw(0.0f)
 	, m_lastTime(0)
@@ -29,6 +42,9 @@ Game::Game()
 	, m_centerY(0)
 	, m_soundEngine(nullptr)
 	, m_chasingSound(nullptr)
+	, m_gameTimer(GAME_DURATION)
+	, m_spawnTimer(0.0f)
+	, m_currentWave(1)
 {
 	m_soundEngine = irrklang::createIrrKlangDevice();
 	init();
@@ -320,6 +336,14 @@ void Game::spawnEnemyAtGate(int gateIndex)
 	vector3df spawnPos = gatePos - forward * SPAWN_OFFSET;
 	spawnPos.Y = 0.0f;
 
+	// Per-gate spawn position adjustments
+	if (gateIndex == 3)
+	{
+		spawnPos.X += 700.0f;               // shift +X
+		spawnPos.Z -= 400.0f;               // shift backward (-Z)
+		forward = vector3df(0, 0, 1);       // face +Z
+	}
+
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine));
 }
 
@@ -349,6 +373,28 @@ void Game::setupHUD()
 		false, false, 0, -1, false
 	);
 	m_healthText->setOverrideColor(SColor(255, 255, 255, 255));
+
+	// Timer (top-center)
+	{
+		s32 screenW = m_driver->getScreenSize().Width;
+		m_timerText = m_gui->addStaticText(
+			L"3:00",
+			rect<s32>(screenW / 2 - 60, 10, screenW / 2 + 60, 50),
+			false, false, 0, -1, false
+		);
+		m_timerText->setOverrideColor(SColor(255, 255, 255, 255));
+	}
+
+	// Wave indicator (below timer)
+	{
+		s32 screenW = m_driver->getScreenSize().Width;
+		m_waveText = m_gui->addStaticText(
+			L"Wave 1",
+			rect<s32>(screenW / 2 - 60, 50, screenW / 2 + 60, 85),
+			false, false, 0, -1, false
+		);
+		m_waveText->setOverrideColor(SColor(255, 255, 200, 0));
+	}
 
 	// Crosshair
 	ITexture* crosshairTex = m_driver->getTexture("assets/textures/hud/crosshair.png");
@@ -442,11 +488,63 @@ void Game::updatePlaying(f32 deltaTime)
 	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
-	// Test spawn keys
+	// Test spawn keys (manual, not part of wave system)
 	if (m_input.consumeKeyPress(KEY_KEY_1)) spawnEnemyAtGate(0);
 	if (m_input.consumeKeyPress(KEY_KEY_2)) spawnEnemyAtGate(1);
 	if (m_input.consumeKeyPress(KEY_KEY_3)) spawnEnemyAtGate(2);
 	if (m_input.consumeKeyPress(KEY_KEY_4)) spawnEnemyAtGate(3);
+
+	// Wave system: timer and auto-spawning
+	m_gameTimer -= deltaTime;
+	if (m_gameTimer <= 0.0f)
+	{
+		m_gameTimer = 0.0f;
+		m_state = GameState::WIN;
+		return;
+	}
+
+	// Determine current wave
+	s32 maxAlive;
+	f32 spawnInterval;
+	if (m_gameTimer > WAVE1_TIME)
+	{
+		m_currentWave = 1;
+		maxAlive = WAVE1_MAX;
+		spawnInterval = WAVE1_SPAWN_INTERVAL;
+	}
+	else if (m_gameTimer > WAVE2_TIME)
+	{
+		m_currentWave = 2;
+		maxAlive = WAVE2_MAX;
+		spawnInterval = WAVE2_SPAWN_INTERVAL;
+	}
+	else
+	{
+		m_currentWave = 3;
+		maxAlive = WAVE3_MAX;
+		spawnInterval = WAVE3_SPAWN_INTERVAL;
+	}
+
+	// Count alive enemies
+	s32 aliveCount = 0;
+	for (Enemy* enemy : m_enemies)
+	{
+		if (!enemy->isDead())
+			aliveCount++;
+	}
+
+	// Auto-spawn enemies
+	m_spawnTimer -= deltaTime;
+	if (m_spawnTimer <= 0.0f && aliveCount < maxAlive)
+	{
+		int gateIndex = rand() % (int)m_gatePositions.size();
+		spawnEnemyAtGate(gateIndex);
+		m_spawnTimer = spawnInterval;
+	}
+	else if (m_spawnTimer <= 0.0f)
+	{
+		m_spawnTimer = 0.0f; // clamp, will spawn next frame when slot opens
+	}
 
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
@@ -631,4 +729,18 @@ void Game::updateHUD()
 	wchar_t hpStr[32];
 	swprintf(hpStr, 32, L"HP: %d", m_player->getHealth());
 	m_healthText->setText(hpStr);
+
+	// Timer display (MM:SS)
+	s32 totalSeconds = (s32)ceilf(m_gameTimer);
+	if (totalSeconds < 0) totalSeconds = 0;
+	s32 minutes = totalSeconds / 60;
+	s32 seconds = totalSeconds % 60;
+	wchar_t timerStr[16];
+	swprintf(timerStr, 16, L"%d:%02d", minutes, seconds);
+	m_timerText->setText(timerStr);
+
+	// Wave display
+	wchar_t waveStr[16];
+	swprintf(waveStr, 16, L"Wave %d", m_currentWave);
+	m_waveText->setText(waveStr);
 }

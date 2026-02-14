@@ -59,6 +59,8 @@ private:
 	// HUD
 	IGUIStaticText*    m_ammoText;
 	IGUIStaticText*    m_healthText;
+	IGUIStaticText*    m_timerText;
+	IGUIStaticText*    m_waveText;
 
 	// State
 	GameState          m_state;
@@ -68,6 +70,11 @@ private:
 	s32                m_centerY;
 
 	IGUIImage* crosshair = nullptr;
+
+	// Wave system
+	f32 m_gameTimer;
+	f32 m_spawnTimer;
+	s32 m_currentWave;
 
 	// Gate spawn positions (for enemy spawning)
 	std::vector<vector3df> m_gatePositions;
