@@ -92,12 +92,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\src;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\include\;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\bullet3\build\lib\Release;$(SolutionDir)libs\irrKlang\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x86\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Irrlicht.lib;irrKlang.lib;BulletDynamics.lib;BulletCollision.lib;LinearMath.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -109,12 +109,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\src;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\include\;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\bullet3\build\lib\Release;$(SolutionDir)libs\irrKlang\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x64\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Irrlicht.lib;irrKlang.lib;BulletDynamics.lib;BulletCollision.lib;LinearMath.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -124,12 +124,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\src;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\include\;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\bullet3\build\lib\Release;$(SolutionDir)libs\irrKlang\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x86\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Irrlicht.lib;irrKlang.lib;BulletDynamics.lib;BulletCollision.lib;LinearMath.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -141,12 +141,12 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\src;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)libs\irrlicht-1.8.5\include\;$(SolutionDir)libs\bullet3\include\;$(SolutionDir)libs\irrKlang\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\bullet3\build\lib\Release;$(SolutionDir)libs\irrKlang\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x64\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Irrlicht.lib;irrKlang.lib;BulletDynamics.lib;BulletCollision.lib;LinearMath.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
