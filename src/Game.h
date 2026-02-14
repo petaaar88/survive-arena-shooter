@@ -62,6 +62,8 @@ private:
 	IGUIStaticText*    m_healthText;
 	IGUIStaticText*    m_timerText;
 	IGUIStaticText*    m_waveText;
+	IGUIStaticText*    m_killText;
+	s32                m_killCount;
 
 	// State
 	GameState          m_state;

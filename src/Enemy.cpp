@@ -1,8 +1,9 @@
 #include "Enemy.h"
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
-static const f32 ENEMY_SPEED = 150.0f;
+static const f32 ENEMY_SPEED = 160.0f;
 static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;
@@ -25,6 +26,37 @@ static const f32 ENEMY_SFX_SALUTE_VOLUME = 0.3f;
 static const f32 ENEMY_SFX_ATTACK_VOLUME = 0.5f;
 static const f32 ENEMY_SFX_HURT_VOLUME   = 0.5f;
 static const f32 ENEMY_SFX_DEATH_VOLUME  = 0.6f;
+static const int  MAX_CONCURRENT_SALUTES = 3;
+
+static std::vector<irrklang::ISound*> s_activeSalutes;
+
+static void playSaluteSound(irrklang::ISoundEngine* engine)
+{
+	if (!engine) return;
+
+	// Clean up finished sounds
+	for (auto it = s_activeSalutes.begin(); it != s_activeSalutes.end(); )
+	{
+		if ((*it)->isFinished())
+		{
+			(*it)->drop();
+			it = s_activeSalutes.erase(it);
+		}
+		else
+			++it;
+	}
+
+	if ((int)s_activeSalutes.size() >= MAX_CONCURRENT_SALUTES)
+		return;
+
+	irrklang::ISound* s = engine->play2D("assets/audio/enemies/salute.mp3", false, true, true);
+	if (s)
+	{
+		s->setVolume(ENEMY_SFX_SALUTE_VOLUME);
+		s->setIsPaused(false);
+		s_activeSalutes.push_back(s);
+	}
+}
 
 Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos, const vector3df& forward, irrklang::ISoundEngine* soundEngine)
 	: GameObject(nullptr, nullptr)
@@ -214,11 +246,7 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 			m_state = EnemyState::SALUTING;
 			m_saluteTimer = SALUTE_DURATION;
 			if (m_animNode) m_animNode->setMD2Animation(EMAT_SALUTE);
-			if (m_soundEngine)
-			{
-				irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/salute.mp3", false, true, true);
-				if (s) { s->setVolume(ENEMY_SFX_SALUTE_VOLUME); s->setIsPaused(false); s->drop(); }
-			}
+			playSaluteSound(m_soundEngine);
 		}
 		return;
 	}
@@ -277,11 +305,7 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 			if (m_body)
 				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 			if (m_animNode) m_animNode->setMD2Animation(EMAT_SALUTE);
-			if (m_soundEngine)
-			{
-				irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/salute.mp3", false, true, true);
-				if (s) { s->setVolume(ENEMY_SFX_SALUTE_VOLUME); s->setIsPaused(false); s->drop(); }
-			}
+			playSaluteSound(m_soundEngine);
 			break;
 		}
 

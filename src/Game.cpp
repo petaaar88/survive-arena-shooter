@@ -15,12 +15,13 @@ static const s32 WAVE1_MAX = 3;
 static const s32 WAVE2_MAX = 6;
 static const s32 WAVE3_MAX = 10;
 static const f32 WAVE1_SPAWN_INTERVAL = 5.0f;
-static const f32 WAVE2_SPAWN_INTERVAL = 3.0f;
-static const f32 WAVE3_SPAWN_INTERVAL = 2.0f;
+static const f32 WAVE2_SPAWN_INTERVAL = 2.0f;
+static const f32 WAVE3_SPAWN_INTERVAL = 1.0f;
 
 // Pickup system
-static const f32 PICKUP_SPAWN_MIN = 5.0f;
-static const f32 PICKUP_SPAWN_MAX = 15.0f;
+static const f32 PICKUP_SPAWN_MIN = 8.0f;
+static const f32 PICKUP_SPAWN_MAX = 20.0f;
+static const s32 PICKUP_AMMO_AMOUNT = 15;
 
 Game::Game()
 	: m_device(nullptr)
@@ -39,6 +40,8 @@ Game::Game()
 	, m_healthText(nullptr)
 	, m_timerText(nullptr)
 	, m_waveText(nullptr)
+	, m_killText(nullptr)
+	, m_killCount(0)
 	, m_state(GameState::PLAYING)
 	, m_cameraYaw(0.0f)
 	, m_lastTime(0)
@@ -185,7 +188,7 @@ void Game::init()
 
 	static const float groundY = -25.0f;
 	ITexture* pillarTex = m_driver->getTexture("assets/textures/obstacles/pillar.png");
-	ITexture* boxTex = m_driver->getTexture("assets/textures/obstacles/box.png");
+	ITexture* boxTex = m_driver->getTexture("assets/textures/obstacles/box.jpg");
 
 	for (const auto& obs : obstacles)
 	{
@@ -405,7 +408,7 @@ void Game::setupHUD()
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_timerText = m_gui->addStaticText(
 			L"3:00",
-			rect<s32>(screenW / 2 - 60, 10, screenW / 2 + 60, 50),
+			rect<s32>(screenW / 2 - 60, 30, screenW / 2 + 60, 70),
 			false, false, 0, -1, false
 		);
 		m_timerText->setOverrideColor(SColor(255, 255, 255, 255));
@@ -416,10 +419,21 @@ void Game::setupHUD()
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_waveText = m_gui->addStaticText(
 			L"Wave 1",
-			rect<s32>(screenW / 2 - 60, 50, screenW / 2 + 60, 85),
+			rect<s32>(screenW / 2 - 60, 80, screenW / 2 + 60, 115),
 			false, false, 0, -1, false
 		);
 		m_waveText->setOverrideColor(SColor(255, 255, 200, 0));
+	}
+
+	// Kill count (top-right)
+	{
+		s32 screenW = m_driver->getScreenSize().Width;
+		m_killText = m_gui->addStaticText(
+			L"Kills: 0",
+			rect<s32>(screenW - 250, 30, screenW - 10, 80),
+			false, false, 0, -1, false
+		);
+		m_killText->setOverrideColor(SColor(255, 255, 255, 255));
 	}
 
 	// Crosshair
@@ -666,7 +680,10 @@ void Game::updatePlaying(f32 deltaTime)
 			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
 			if (hitGameObject == enemy)
 			{
+				bool wasDead = enemy->isDead();
 				enemy->takeDamage(25);
+				if (!wasDead && enemy->isDead())
+					m_killCount++;
 				break;
 			}
 		}
@@ -712,7 +729,7 @@ void Game::updatePlaying(f32 deltaTime)
 			&& p->getTrigger() && m_player->getBody()
 			&& m_physics->isGhostOverlapping(p->getTrigger(), m_player->getBody()))
 		{
-			m_player->addAmmo(30);
+			m_player->addAmmo(PICKUP_AMMO_AMOUNT);
 			p->collect();
 		}
 	}
@@ -788,4 +805,9 @@ void Game::updateHUD()
 	wchar_t waveStr[16];
 	swprintf(waveStr, 16, L"Wave %d", m_currentWave);
 	m_waveText->setText(waveStr);
+
+	// Kill count
+	wchar_t killStr[32];
+	swprintf(killStr, 32, L"Kills: %d", m_killCount);
+	m_killText->setText(killStr);
 }
