@@ -21,7 +21,7 @@ static const f32 WAVE3_SPAWN_INTERVAL = 1.0f;
 // Pickup system
 static const f32 PICKUP_SPAWN_MIN = 8.0f;
 static const f32 PICKUP_SPAWN_MAX = 20.0f;
-static const s32 PICKUP_AMMO_AMOUNT = 15;
+static const s32 PICKUP_AMMO_AMOUNT = 7;
 
 Game::Game()
 	: m_device(nullptr)
@@ -31,7 +31,7 @@ Game::Game()
 	, m_physics(nullptr)
 	, m_debugDrawer(nullptr)
 	, m_groundBody(nullptr)
-	, m_showDebug(true)
+	, m_showDebug(false)
 	, m_player(nullptr)
 	, m_pickupSpawnTimer(0.0f)
 	, m_camera(nullptr)
