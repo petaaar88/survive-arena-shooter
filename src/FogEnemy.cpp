@@ -1,6 +1,7 @@
 #include "FogEnemy.h"
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 static const f32 FOG_ENEMY_SPEED = 160.0f;
 static const s32 FOG_ENEMY_HEALTH = 60;
@@ -24,6 +25,7 @@ static const f32 FOG_END_INITIAL = 300.0f;
 static const f32 FOG_START_FINAL = 9999.0f;
 static const f32 FOG_END_FINAL = 10000.0f;
 static const SColor FOG_COLOR(255, 180, 180, 180);
+
 
 FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 	const vector3df& spawnPos, const vector3df& forward,
@@ -99,6 +101,7 @@ FogEnemy::~FogEnemy()
 
 void FogEnemy::update(f32 deltaTime)
 {
+
 	if (m_physicsCreated)
 		syncPhysicsToNode();
 
@@ -117,9 +120,14 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 	if (m_isDead)
 	{
 		m_deathTimer -= deltaTime;
-		if (m_deathTimer <= 0)
-			markForRemoval();
 
+		if(m_deathTimer <= 0)
+			m_node->setVisible(false);
+
+		if (m_deathTimer <= 0 && !m_fogActive)
+			markForRemoval();
+		
+		
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 		return;
