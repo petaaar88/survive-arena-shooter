@@ -551,7 +551,7 @@ void Game::run()
 
 	while (m_device->run())
 	{
-		std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
+		//std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
 		if (!m_device->isWindowActive())
 		{
 			m_device->yield();

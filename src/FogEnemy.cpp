@@ -1,5 +1,6 @@
 #include "FogEnemy.h"
 #include <cmath>
+#include <iostream>
 
 static const f32 FOG_ENEMY_SPEED = 160.0f;
 static const s32 FOG_ENEMY_HEALTH = 60;
@@ -16,8 +17,9 @@ static const f32 GRENADE_SPAWN_HEIGHT = 30.0f;
 static const f32 GRENADE_SIZE = 3.0f;
 
 // Fog (Irrlicht EFT_FOG_LINEAR)
-static const f32 FOG_DURATION = 15.0f;
-static const f32 FOG_START_INITIAL = 50.0f;
+static const f32 FOG_DURATION = 10.0f;
+static const f32 FOG_FADING_DURATION = 5.0f;
+static const f32 FOG_START_INITIAL = 250.0f;
 static const f32 FOG_END_INITIAL = 300.0f;
 static const f32 FOG_START_FINAL = 9999.0f;
 static const f32 FOG_END_FINAL = 10000.0f;
@@ -92,7 +94,7 @@ FogEnemy::~FogEnemy()
 
 	// Disable fog if this enemy had it active
 	if (m_fogActive && m_driver)
-		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, FOG_START_FINAL, FOG_END_FINAL, 0.0f, false, true);
+		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, FOG_START_FINAL, FOG_END_FINAL, 0.0f, true, false);
 }
 
 void FogEnemy::update(f32 deltaTime)
@@ -192,17 +194,18 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		if (m_stateTimer <= 0)
 		{
 			m_state = FogEnemyState::IDLE;
-			if (m_animNode)
-			{
-				m_animNode->setMD2Animation(EMAT_STAND);
-				m_animNode->setLoopMode(true);
-			}
+			
 		}
 		break;
 	}
 
 	case FogEnemyState::IDLE:
 	{
+		if (m_animNode)
+		{
+			m_animNode->setMD2Animation(EMAT_STAND);
+			m_animNode->setLoopMode(true);
+		}
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 		break;
@@ -244,8 +247,11 @@ void FogEnemy::takeDamage(s32 amount)
 		m_isInPain = true;
 		m_painTimer = FOG_ENEMY_PAIN_DURATION;
 
-		if (m_animNode)
+		if (m_animNode) {
 			m_animNode->setMD2Animation(EMAT_PAIN_B);
+			m_animNode->setLoopMode(false);
+
+		}
 	}
 }
 
@@ -299,22 +305,32 @@ void FogEnemy::activateFog()
 	m_fogEndDist = FOG_END_INITIAL;
 
 	if (m_driver)
-		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, m_fogStartDist, m_fogEndDist, 0.0f, false, true);
+		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, m_fogStartDist, m_fogEndDist, 0.0f, true, false);
 }
 
 void FogEnemy::updateFog(f32 deltaTime)
 {
 	if (!m_fogActive)
 		return;
-
+	
 	m_fogTimer -= deltaTime;
+
+
+	if (m_fogTimer <= 0.0f && !m_fogFinished) {
+		m_fogFinished = true;
+		m_fogTimer = FOG_DURATION;
+	}
+	else if(!m_fogFinished)
+		return;
 
 	if (m_fogTimer <= 0.0f)
 	{
 		// Fog fully cleared
 		m_fogActive = false;
+		m_fogFinished = false;
 		m_fogStartDist = FOG_START_FINAL;
 		m_fogEndDist = FOG_END_FINAL;
+		m_fogTimer = FOG_DURATION;
 	}
 	else
 	{
@@ -325,5 +341,5 @@ void FogEnemy::updateFog(f32 deltaTime)
 	}
 
 	if (m_driver)
-		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, m_fogStartDist, m_fogEndDist, 0.0f, false, true);
+		m_driver->setFog(FOG_COLOR, EFT_FOG_LINEAR, m_fogStartDist, m_fogEndDist, 0.0f, true, false);
 }

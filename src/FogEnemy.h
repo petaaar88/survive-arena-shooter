@@ -68,4 +68,5 @@ private:
 	f32 m_fogTimer;
 	f32 m_fogStartDist;
 	f32 m_fogEndDist;
+	bool m_fogFinished;
 };

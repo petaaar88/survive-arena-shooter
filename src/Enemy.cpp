@@ -502,6 +502,7 @@ void Enemy::takeDamage(s32 amount)
 
 		if (m_animNode)
 			m_animNode->setMD2Animation(EMAT_PAIN_A);
+			m_animNode->setMD2Animation(EMAT_PAIN_A);
 		if (m_soundEngine)
 		{
 			irrklang::ISound* s = m_soundEngine->play2D("assets/audio/enemies/hurt.mp3", false, true, true);
