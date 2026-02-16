@@ -98,7 +98,7 @@ Game::~Game()
 
 void Game::init()
 {
-	m_device = createDevice(video::EDT_OPENGL, dimension2d<u32>(1300, 780), 16,
+	m_device = createDevice(video::EDT_DIRECT3D9, dimension2d<u32>(1300, 780), 16,
 		false, false, false, &m_input);
 
 	if (!m_device)
