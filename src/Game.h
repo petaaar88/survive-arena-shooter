@@ -15,7 +15,7 @@ using namespace scene;
 using namespace video;
 using namespace gui;
 
-enum class GameState { MENU, PLAYING, PAUSED, CREDITS, GAMEOVER, WIN };
+enum class GameState { MENU, PLAYING, TESTING, PAUSED, CREDITS, GAMEOVER, WIN };
 
 class Game
 {
@@ -32,13 +32,14 @@ private:
 
 	void updateMenu();
 	void updatePlaying(f32 deltaTime);
+	void updateTesting(f32 deltaTime);
 	void updatePaused();
 	void updateCredits();
 	void updateGameOver(f32 deltaTime);
 	void updateWin(f32 deltaTime);
 	void updateCamera();
 	void updateHUD();
-	void spawnEnemyAtGate(int gateIndex);
+	void spawnEnemyAtGate(int gateIndex, EnemyType type = EnemyType::BASIC);
 	void setHUDVisible(bool visible);
 
 	void drawMenu();

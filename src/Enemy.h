@@ -10,13 +10,15 @@ using namespace scene;
 using namespace video;
 
 enum class EnemyState { SPAWNING, SALUTING, IDLE, CHASE, WAIT_ATTACK, ATTACK, DEAD };
+enum class EnemyType { BASIC, FAST };
 
 class Enemy : public GameObject
 {
 public:
 	Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos,
 		  const vector3df& forward = vector3df(0, 0, 0),
-		  irrklang::ISoundEngine* soundEngine = nullptr);
+		  irrklang::ISoundEngine* soundEngine = nullptr,
+		  EnemyType type = EnemyType::BASIC);
 	~Enemy();
 
 	void update(f32 deltaTime) override;
@@ -36,10 +38,15 @@ public:
 	bool isSaluting() const { return m_isSaluting; }
 	EnemyState getState() const { return m_state; }
 
+	EnemyType getType() const { return m_type; }
+
 private:
+	f32 getSpeed() const;
+
 	void updateAttackTrigger();
 	void createPhysicsBody(const vector3df& pos);
 
+	EnemyType m_type;
 	ISceneManager* m_smgr;
 	IVideoDriver* m_driver;
 	Physics* m_physics;

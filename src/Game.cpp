@@ -42,7 +42,7 @@ Game::Game()
 	, m_waveText(nullptr)
 	, m_killText(nullptr)
 	, m_killCount(0)
-	, m_state(GameState::MENU)
+	, m_state(GameState::TESTING)
 	, m_menuBgTex(nullptr)
 	, m_logoTex(nullptr)
 	, m_playBtnTex(nullptr)
@@ -105,7 +105,7 @@ void Game::init()
 		return;
 
 	m_device->setWindowCaption(L"Survive - Arena Shooter");
-	m_device->getCursorControl()->setVisible(true); // visible for menu
+	m_device->getCursorControl()->setVisible(m_state != GameState::TESTING);
 
 	m_driver = m_device->getVideoDriver();
 	m_smgr = m_device->getSceneManager();
@@ -189,8 +189,8 @@ void Game::init()
 		m_endScreenExitBtnRect = rect<s32>(cx - btnW/2, endExitY, cx + btnW/2, endExitY + btnH);
 	}
 
-	// Hide HUD initially (we start in MENU)
-	setHUDVisible(false);
+	// Hide HUD initially unless starting in TESTING
+	setHUDVisible(m_state == GameState::TESTING);
 
 	m_lastTime = m_device->getTimer()->getTime();
 
@@ -390,7 +390,7 @@ void Game::setupGates(IMeshSceneNode* map)
 	}
 }
 
-void Game::spawnEnemyAtGate(int gateIndex)
+void Game::spawnEnemyAtGate(int gateIndex, EnemyType type)
 {
 	if (gateIndex < 0 || gateIndex >= (int)m_gatePositions.size())
 		return;
@@ -420,7 +420,7 @@ void Game::spawnEnemyAtGate(int gateIndex)
 		forward = vector3df(0, 0, 1);       // face +Z
 	}
 
-	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine));
+	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine, type));
 }
 
 void Game::setupHUD()
@@ -529,6 +529,9 @@ void Game::run()
 		case GameState::PLAYING:
 			updatePlaying(deltaTime);
 			break;
+		case GameState::TESTING:
+			updateTesting(deltaTime);
+			break;
 		case GameState::PAUSED:
 			updatePaused();
 			break;
@@ -633,46 +636,62 @@ void Game::updatePlaying(f32 deltaTime)
 	}
 
 	// Determine current wave
-	s32 maxAlive;
+	s32 maxBasic, maxFast;
 	f32 spawnInterval;
 	if (m_gameTimer > WAVE1_TIME)
 	{
 		m_currentWave = 1;
-		maxAlive = WAVE1_MAX;
+		maxBasic = 3; maxFast = 0;
 		spawnInterval = WAVE1_SPAWN_INTERVAL;
 	}
 	else if (m_gameTimer > WAVE2_TIME)
 	{
 		m_currentWave = 2;
-		maxAlive = WAVE2_MAX;
+		maxBasic = 4; maxFast = 2;
 		spawnInterval = WAVE2_SPAWN_INTERVAL;
 	}
 	else
 	{
 		m_currentWave = 3;
-		maxAlive = WAVE3_MAX;
+		maxBasic = 4; maxFast = 6;
 		spawnInterval = WAVE3_SPAWN_INTERVAL;
 	}
 
-	// Count alive enemies
-	s32 aliveCount = 0;
+	// Count alive enemies by type
+	s32 aliveBasic = 0, aliveFast = 0;
 	for (Enemy* enemy : m_enemies)
 	{
 		if (!enemy->isDead())
-			aliveCount++;
+		{
+			if (enemy->getType() == EnemyType::FAST)
+				aliveFast++;
+			else
+				aliveBasic++;
+		}
 	}
 
 	// Auto-spawn enemies
 	m_spawnTimer -= deltaTime;
-	if (m_spawnTimer <= 0.0f && aliveCount < maxAlive)
+	if (m_spawnTimer <= 0.0f)
 	{
-		int gateIndex = rand() % (int)m_gatePositions.size();
-		spawnEnemyAtGate(gateIndex);
-		m_spawnTimer = spawnInterval;
-	}
-	else if (m_spawnTimer <= 0.0f)
-	{
-		m_spawnTimer = 0.0f; // clamp, will spawn next frame when slot opens
+		bool canBasic = aliveBasic < maxBasic;
+		bool canFast  = aliveFast < maxFast;
+		if (canBasic || canFast)
+		{
+			EnemyType type;
+			if (canBasic && canFast)
+				type = (rand() % 2 == 0) ? EnemyType::BASIC : EnemyType::FAST;
+			else
+				type = canFast ? EnemyType::FAST : EnemyType::BASIC;
+
+			int gateIndex = rand() % (int)m_gatePositions.size();
+			spawnEnemyAtGate(gateIndex, type);
+			m_spawnTimer = spawnInterval;
+		}
+		else
+		{
+			m_spawnTimer = 0.0f;
+		}
 	}
 
 	// 1. Handle player input (movement + shooting)
@@ -863,6 +882,172 @@ void Game::updatePlaying(f32 deltaTime)
 	}
 }
 
+void Game::updateTesting(f32 deltaTime)
+{
+	// ESC → back to menu
+	if (m_input.consumeKeyPress(KEY_ESCAPE))
+	{
+		m_state = GameState::MENU;
+		m_device->getCursorControl()->setVisible(true);
+		setHUDVisible(false);
+		return;
+	}
+
+	// Mouse look
+	position2d<s32> cursorPos = m_device->getCursorControl()->getPosition();
+	f32 mouseDX = (f32)(cursorPos.X - m_centerX);
+	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
+	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+
+	// Manual spawn: 1-4 = basic enemies, 5-8 = fast enemies
+	if (m_input.consumeKeyPress(KEY_KEY_1)) spawnEnemyAtGate(0, EnemyType::BASIC);
+	if (m_input.consumeKeyPress(KEY_KEY_2)) spawnEnemyAtGate(1, EnemyType::BASIC);
+	if (m_input.consumeKeyPress(KEY_KEY_3)) spawnEnemyAtGate(2, EnemyType::BASIC);
+	if (m_input.consumeKeyPress(KEY_KEY_4)) spawnEnemyAtGate(3, EnemyType::BASIC);
+	if (m_input.consumeKeyPress(KEY_KEY_5)) spawnEnemyAtGate(0, EnemyType::FAST);
+	if (m_input.consumeKeyPress(KEY_KEY_6)) spawnEnemyAtGate(1, EnemyType::FAST);
+	if (m_input.consumeKeyPress(KEY_KEY_7)) spawnEnemyAtGate(2, EnemyType::FAST);
+	if (m_input.consumeKeyPress(KEY_KEY_8)) spawnEnemyAtGate(3, EnemyType::FAST);
+
+	// Player input (movement + shooting)
+	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
+
+	// Enemy attack permission (same logic as PLAYING)
+	bool anyAttacking = false;
+	for (Enemy* enemy : m_enemies)
+	{
+		if (!enemy->isDead() && enemy->getState() == EnemyState::ATTACK)
+		{
+			enemy->setAttackAllowed(true);
+			anyAttacking = true;
+		}
+		else
+		{
+			enemy->setAttackAllowed(false);
+		}
+	}
+	if (!anyAttacking)
+	{
+		Enemy* closest = nullptr;
+		f32 closestDist = 999999.0f;
+		vector3df playerPos = m_player->getPosition();
+		for (Enemy* enemy : m_enemies)
+		{
+			if (!enemy->isDead()
+				&& (enemy->getState() == EnemyState::WAIT_ATTACK
+					|| enemy->getState() == EnemyState::CHASE))
+			{
+				f32 dist = enemy->getPosition().getDistanceFrom(playerPos);
+				if (dist < closestDist)
+				{
+					closestDist = dist;
+					closest = enemy;
+				}
+			}
+		}
+		if (closest)
+			closest->setAttackAllowed(true);
+	}
+
+	for (Enemy* enemy : m_enemies)
+		enemy->setSaluteAllowed(!enemy->isDead() && enemy->getState() == EnemyState::CHASE);
+
+	// Update enemy AI
+	for (Enemy* enemy : m_enemies)
+		enemy->updateAI(deltaTime, m_player->getPosition());
+
+	// Step physics simulation
+	m_physics->stepSimulation(deltaTime);
+
+	// Sync physics → visual nodes
+	m_player->update(deltaTime);
+	for (Enemy* enemy : m_enemies)
+		enemy->update(deltaTime);
+
+	// Check if player's shot hit any enemy
+	btCollisionObject* hitObject = m_player->getLastHitObject();
+	if (hitObject)
+	{
+		for (Enemy* enemy : m_enemies)
+		{
+			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
+			if (hitGameObject == enemy)
+			{
+				bool wasDead = enemy->isDead();
+				enemy->takeDamage(25);
+				if (!wasDead && enemy->isDead())
+					m_killCount++;
+				break;
+			}
+		}
+	}
+
+	// Check enemy attack overlap with player
+	for (Enemy* enemy : m_enemies)
+	{
+		if (!enemy->isDead()
+			&& enemy->getAttackTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(enemy->getAttackTrigger(), m_player->getBody())
+			&& enemy->wantsToDealDamage())
+		{
+			m_player->takeDamage(enemy->getAttackDamage());
+			enemy->resetAttackCooldown();
+		}
+	}
+
+	// Remove dead enemies
+	for (auto it = m_enemies.begin(); it != m_enemies.end(); )
+	{
+		if ((*it)->shouldRemove())
+		{
+			delete *it;
+			it = m_enemies.erase(it);
+		}
+		else
+			++it;
+	}
+
+	// Pickup spawn timer — randomly respawn a hidden pickup
+	m_pickupSpawnTimer -= deltaTime;
+	if (m_pickupSpawnTimer <= 0.0f)
+	{
+		std::vector<int> hiddenIndices;
+		for (int i = 0; i < (int)m_pickups.size(); i++)
+		{
+			if (m_pickups[i]->isCollected())
+				hiddenIndices.push_back(i);
+		}
+		if (!hiddenIndices.empty())
+		{
+			int pick = hiddenIndices[rand() % hiddenIndices.size()];
+			m_pickups[pick]->respawn();
+		}
+		m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
+	}
+
+	// Check pickup overlap
+	for (Pickup* p : m_pickups)
+	{
+		p->update(deltaTime);
+		if (!p->isCollected()
+			&& p->getTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(p->getTrigger(), m_player->getBody()))
+		{
+			m_player->addAmmo(PICKUP_AMMO_AMOUNT);
+			p->collect();
+		}
+	}
+
+	updateCamera();
+	updateHUD();
+
+	if (crosshair)
+	{
+		bool showCrosshair = m_input.isRightMouseDown();
+		crosshair->setVisible(showCrosshair);
+	}
+}
+
 void Game::updateGameOver(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
@@ -938,6 +1123,17 @@ void Game::setHUDVisible(bool visible)
 
 void Game::updateMenu()
 {
+	// Press T to enter testing mode
+	if (m_input.consumeKeyPress(KEY_KEY_T))
+	{
+		m_state = GameState::TESTING;
+		m_device->getCursorControl()->setVisible(false);
+		m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
+		m_lastTime = m_device->getTimer()->getTime();
+		setHUDVisible(true);
+		return;
+	}
+
 	if (m_input.consumeLeftClick())
 	{
 		if (isClickInRect(m_playBtnRect))

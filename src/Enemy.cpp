@@ -4,11 +4,14 @@
 #include <vector>
 
 static const f32 ENEMY_SPEED = 160.0f;
+static const f32 ENEMY_FAST_SPEED = 320.0f;
 static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;
 static const s32 ENEMY_HEALTH = 50;
+static const s32 ENEMY_FAST_HEALTH = 25;
 static const s32 ENEMY_DAMAGE = 10;
+static const s32 ENEMY_FAST_DAMAGE = 5;
 static const f32 ENEMY_DEATH_DURATION = 0.5f;
 static const f32 ENEMY_PAIN_DURATION = 0.4f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
@@ -58,8 +61,9 @@ static void playSaluteSound(irrklang::ISoundEngine* engine)
 	}
 }
 
-Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos, const vector3df& forward, irrklang::ISoundEngine* soundEngine)
+Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const vector3df& spawnPos, const vector3df& forward, irrklang::ISoundEngine* soundEngine, EnemyType type)
 	: GameObject(nullptr, nullptr)
+	, m_type(type)
 	, m_smgr(smgr)
 	, m_driver(driver)
 	, m_physics(physics)
@@ -70,7 +74,7 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 	, m_isDead(false)
 	, m_isMoving(false)
 	, m_isInPain(false)
-	, m_health(ENEMY_HEALTH)
+	, m_health(type == EnemyType::FAST ? ENEMY_FAST_HEALTH : ENEMY_HEALTH)
 	, m_attackCooldown(0.0f)
 	, m_deathTimer(0.0f)
 	, m_painTimer(0.0f)
@@ -99,8 +103,13 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 		m_animNode = smgr->addAnimatedMeshSceneNode(mesh);
 		if (m_animNode)
 		{
-			m_animNode->setMaterialTexture(0, driver->getTexture("assets/models/enemy/ctf_r.pcx"));
+			const char* texPath = (m_type == EnemyType::FAST)
+				? "assets/models/enemy/ctf_b.pcx"
+				: "assets/models/enemy/ctf_r.pcx";
+			m_animNode->setMaterialTexture(0, driver->getTexture(texPath));
 			m_animNode->setMaterialFlag(EMF_LIGHTING, false);
+			if (m_type == EnemyType::FAST)
+				m_animNode->setScale(vector3df(1.2f, 1.2f, 1.2f));
 			m_animNode->setPosition(spawnPos);
 
 			if (isGateSpawn)
@@ -127,7 +136,9 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 
 void Enemy::createPhysicsBody(const vector3df& pos)
 {
-	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
+	f32 capsuleRadius = (m_type == EnemyType::FAST) ? 18.0f : 15.0f;
+	f32 capsuleHeight = (m_type == EnemyType::FAST) ? 36.0f : 30.0f;
+	btCapsuleShape* capsule = new btCapsuleShape(capsuleRadius, capsuleHeight);
 	m_body = m_physics->createRigidBody(10.0f, capsule, pos);
 	m_body->setAngularFactor(btVector3(0, 0, 0));
 	m_body->setActivationState(DISABLE_DEACTIVATION);
@@ -234,7 +245,7 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 	// Handle spawning states before physics-dependent code
 	if (m_state == EnemyState::SPAWNING)
 	{
-		f32 step = ENEMY_SPEED * deltaTime;
+		f32 step = getSpeed() * deltaTime;
 		vector3df currentPos = m_animNode->getPosition();
 		currentPos += m_spawnForward * step;
 		m_animNode->setPosition(currentPos);
@@ -353,9 +364,10 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		// Set velocity on Bullet body
 		if (m_body)
 		{
-			btVector3 velocity(moveDir.X * ENEMY_SPEED,
+			f32 speed = getSpeed();
+			btVector3 velocity(moveDir.X * speed,
 				m_body->getLinearVelocity().getY(),
-				moveDir.Z * ENEMY_SPEED);
+				moveDir.Z * speed);
 			m_body->setLinearVelocity(velocity);
 		}
 
@@ -504,7 +516,12 @@ bool Enemy::wantsToDealDamage() const
 
 s32 Enemy::getAttackDamage() const
 {
-	return ENEMY_DAMAGE;
+	return (m_type == EnemyType::FAST) ? ENEMY_FAST_DAMAGE : ENEMY_DAMAGE;
+}
+
+f32 Enemy::getSpeed() const
+{
+	return (m_type == EnemyType::FAST) ? ENEMY_FAST_SPEED : ENEMY_SPEED;
 }
 
 void Enemy::resetAttackCooldown()
