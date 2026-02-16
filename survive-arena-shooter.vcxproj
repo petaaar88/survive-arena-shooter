@@ -159,6 +159,7 @@
     <ClCompile Include="src/GameObject.cpp" />
     <ClCompile Include="src/DebugDrawer.cpp" />
     <ClCompile Include="src/Pickup.cpp" />
+    <ClCompile Include="src/FogEnemy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/InputHandler.h" />
@@ -169,6 +170,7 @@
     <ClInclude Include="src/GameObject.h" />
     <ClInclude Include="src/DebugDrawer.h" />
     <ClInclude Include="src/Pickup.h" />
+    <ClInclude Include="src/FogEnemy.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />

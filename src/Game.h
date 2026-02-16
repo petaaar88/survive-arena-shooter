@@ -6,6 +6,7 @@
 #include "Physics.h"
 #include "Player.h"
 #include "Enemy.h"
+#include "FogEnemy.h"
 #include "Pickup.h"
 #include "DebugDrawer.h"
 
@@ -40,6 +41,7 @@ private:
 	void updateCamera();
 	void updateHUD();
 	void spawnEnemyAtGate(int gateIndex, EnemyType type = EnemyType::BASIC);
+	void spawnFogEnemyAtGate(int gateIndex);
 	void setHUDVisible(bool visible);
 
 	void drawMenu();
@@ -66,6 +68,7 @@ private:
 	// Game objects
 	Player*            m_player;
 	std::vector<Enemy*> m_enemies;
+	std::vector<FogEnemy*> m_fogEnemies;
 	std::vector<Pickup*> m_pickups;
 	f32                m_pickupSpawnTimer;
 	ICameraSceneNode*  m_camera;

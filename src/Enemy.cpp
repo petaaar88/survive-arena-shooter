@@ -108,6 +108,7 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 				: "assets/models/enemy/ctf_r.pcx";
 			m_animNode->setMaterialTexture(0, driver->getTexture(texPath));
 			m_animNode->setMaterialFlag(EMF_LIGHTING, false);
+			m_animNode->setMaterialFlag(EMF_FOG_ENABLE, true);
 			if (m_type == EnemyType::FAST)
 				m_animNode->setScale(vector3df(1.2f, 1.2f, 1.2f));
 			m_animNode->setPosition(spawnPos);

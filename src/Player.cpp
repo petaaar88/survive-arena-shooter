@@ -51,6 +51,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		{
 			m_playerNode->setMaterialTexture(0, driver->getTexture("assets/models/player/caleb.pcx"));
 			m_playerNode->setMaterialFlag(EMF_LIGHTING, false);
+			m_playerNode->setMaterialFlag(EMF_FOG_ENABLE, true);
 			m_playerNode->setPosition(vector3df(0, 0, 0));
 			m_playerNode->setMD2Animation(EMAT_STAND);
 		}
@@ -65,6 +66,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		{
 			m_weaponNode->setMaterialTexture(0, driver->getTexture("assets/models/player/Weapon.pcx"));
 			m_weaponNode->setMaterialFlag(EMF_LIGHTING, false);
+			m_weaponNode->setMaterialFlag(EMF_FOG_ENABLE, true);
 			m_weaponNode->setMD2Animation(EMAT_STAND);
 		}
 	}

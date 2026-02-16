@@ -83,6 +83,9 @@ Game::~Game()
 	for (Enemy* e : m_enemies) delete e;
 	m_enemies.clear();
 
+	for (FogEnemy* f : m_fogEnemies) delete f;
+	m_fogEnemies.clear();
+
 	delete m_player;
 	m_player = nullptr;
 
@@ -247,6 +250,7 @@ void Game::init()
 			core::vector3df pos(obs.x, groundY + obs.h / 2.0f, obs.z);
 			node->setPosition(pos);
 			node->setMaterialFlag(video::EMF_LIGHTING, false);
+			node->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 			node->setMaterialTexture(0, obs.isPillar ? pillarTex : boxTex);
 
 			btBoxShape* shape = new btBoxShape(btVector3(obs.w * 0.5f, obs.h * 0.5f, obs.d * 0.5f));
@@ -267,6 +271,7 @@ void Game::setupScene()
 		m_ground->setScale(vector3df(300.0f, 0.1f, 300.0f));
 		m_ground->setPosition(vector3df(0, -25, 0));
 		m_ground->setMaterialFlag(EMF_LIGHTING, false);
+		m_ground->setMaterialFlag(EMF_FOG_ENABLE, true);
 		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/building/ground.jpg"));
 	}
 
@@ -327,6 +332,10 @@ void Game::setupScene()
 
 	map->setScale(vector3df(10, 11, 11));
 	map->setMaterialFlag(EMF_LIGHTING, false);
+	map->setMaterialFlag(EMF_FOG_ENABLE, true);
+
+	// Initialize fog to disabled state
+	m_driver->setFog(SColor(255, 180, 180, 180), EFT_FOG_LINEAR, 9999.0f, 10000.0f, 0.0f, false, true);
 
 	setupGates(map);
 }
@@ -352,12 +361,14 @@ void Game::setupGates(IMeshSceneNode* map)
 		gate->setRotation(vector3df(0, g.rotationY, 0));
 		gate->setScale(vector3df(4, 3, 8));
 		gate->setMaterialFlag(video::EMF_LIGHTING, false);
+		gate->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 
 		// Black backdrop
 		IMeshSceneNode* blackCube = m_smgr->addCubeSceneNode(20.0f, gate);
 		blackCube->setPosition(vector3df(2, 5.6f, -10.3f));
 		blackCube->setScale(vector3df(0.3f, 0.35f, 0.1f));
 		blackCube->setMaterialFlag(video::EMF_LIGHTING, true);
+		blackCube->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 		blackCube->setMaterialType(video::EMT_SOLID);
 		blackCube->getMaterial(0).ColorMaterial = video::ECM_NONE;
 		blackCube->getMaterial(0).DiffuseColor = SColor(255, 0, 0, 0);
@@ -369,6 +380,7 @@ void Game::setupGates(IMeshSceneNode* map)
 		leftCube->setPosition(vector3df(-2, 5.6f, -9.8f));
 		leftCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
 		leftCube->setMaterialFlag(video::EMF_LIGHTING, false);
+		leftCube->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 		leftCube->setMaterialTexture(0, pillarTex);
 
 		// Right pillar
@@ -376,6 +388,7 @@ void Game::setupGates(IMeshSceneNode* map)
 		rightCube->setPosition(vector3df(5.5f, 5.6f, -9.8f));
 		rightCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
 		rightCube->setMaterialFlag(video::EMF_LIGHTING, false);
+		rightCube->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 		rightCube->setMaterialTexture(0, pillarTex);
 
 		// Convert local gate position to world space
@@ -421,6 +434,37 @@ void Game::spawnEnemyAtGate(int gateIndex, EnemyType type)
 	}
 
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine, type));
+}
+
+void Game::spawnFogEnemyAtGate(int gateIndex)
+{
+	if (gateIndex < 0 || gateIndex >= (int)m_gatePositions.size())
+		return;
+
+	static const f32 SPAWN_OFFSET = 700.0f;
+
+	vector3df gatePos = m_gatePositions[gateIndex];
+	vector3df forward = vector3df(0, 0, 0) - gatePos;
+	forward.Y = 0;
+	forward.normalize();
+
+	vector3df spawnPos = gatePos - forward * SPAWN_OFFSET;
+	spawnPos.Y = 0.0f;
+
+	if (gateIndex == 2)
+	{
+		spawnPos.X += 500.0f;
+		spawnPos.Z += 400.0f;
+		forward = vector3df(0, 0, -1);
+	}
+	if (gateIndex == 3)
+	{
+		spawnPos.X += 700.0f;
+		spawnPos.Z -= 400.0f;
+		forward = vector3df(0, 0, 1);
+	}
+
+	m_fogEnemies.push_back(new FogEnemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine));
 }
 
 void Game::setupHUD()
@@ -507,7 +551,7 @@ void Game::run()
 
 	while (m_device->run())
 	{
-		//std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
+		std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
 		if (!m_device->isWindowActive())
 		{
 			m_device->yield();
@@ -550,8 +594,17 @@ void Game::run()
 		if (m_input.consumeKeyPress(KEY_F1))
 			m_showDebug = !m_showDebug;
 
-		// Render
-		m_driver->beginScene(true, true, SColor(0, 0, 0, 0));
+		// Render — match clear color to fog when active
+		SColor clearColor(0, 0, 0, 0);
+		for (FogEnemy* f : m_fogEnemies)
+		{
+			if (f->isFogActive())
+			{
+				clearColor = SColor(255, 180, 180, 180);
+				break;
+			}
+		}
+		m_driver->beginScene(true, true, clearColor);
 
 		if (m_state == GameState::MENU || m_state == GameState::CREDITS)
 		{
@@ -908,6 +961,7 @@ void Game::updateTesting(f32 deltaTime)
 	if (m_input.consumeKeyPress(KEY_KEY_6)) spawnEnemyAtGate(1, EnemyType::FAST);
 	if (m_input.consumeKeyPress(KEY_KEY_7)) spawnEnemyAtGate(2, EnemyType::FAST);
 	if (m_input.consumeKeyPress(KEY_KEY_8)) spawnEnemyAtGate(3, EnemyType::FAST);
+	if (m_input.consumeKeyPress(KEY_KEY_0)) spawnFogEnemyAtGate(rand() % 4);
 
 	// Player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
@@ -955,6 +1009,8 @@ void Game::updateTesting(f32 deltaTime)
 	// Update enemy AI
 	for (Enemy* enemy : m_enemies)
 		enemy->updateAI(deltaTime, m_player->getPosition());
+	for (FogEnemy* fogEnemy : m_fogEnemies)
+		fogEnemy->updateAI(deltaTime, m_player->getPosition());
 
 	// Step physics simulation
 	m_physics->stepSimulation(deltaTime);
@@ -963,6 +1019,8 @@ void Game::updateTesting(f32 deltaTime)
 	m_player->update(deltaTime);
 	for (Enemy* enemy : m_enemies)
 		enemy->update(deltaTime);
+	for (FogEnemy* fogEnemy : m_fogEnemies)
+		fogEnemy->update(deltaTime);
 
 	// Check if player's shot hit any enemy
 	btCollisionObject* hitObject = m_player->getLastHitObject();
@@ -976,6 +1034,18 @@ void Game::updateTesting(f32 deltaTime)
 				bool wasDead = enemy->isDead();
 				enemy->takeDamage(25);
 				if (!wasDead && enemy->isDead())
+					m_killCount++;
+				break;
+			}
+		}
+		for (FogEnemy* fogEnemy : m_fogEnemies)
+		{
+			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
+			if (hitGameObject == fogEnemy)
+			{
+				bool wasDead = fogEnemy->isDead();
+				fogEnemy->takeDamage(25);
+				if (!wasDead && fogEnemy->isDead())
 					m_killCount++;
 				break;
 			}
@@ -1002,6 +1072,16 @@ void Game::updateTesting(f32 deltaTime)
 		{
 			delete *it;
 			it = m_enemies.erase(it);
+		}
+		else
+			++it;
+	}
+	for (auto it = m_fogEnemies.begin(); it != m_fogEnemies.end(); )
+	{
+		if ((*it)->shouldRemove())
+		{
+			delete *it;
+			it = m_fogEnemies.erase(it);
 		}
 		else
 			++it;
