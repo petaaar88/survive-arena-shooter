@@ -19,7 +19,7 @@ public:
 	void update(f32 deltaTime) override;
 	void handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw);
 
-	void reset();
+	void reset(s32 m_healthUpgradeLevel);
 	void takeDamage(s32 amount);
 	void addAmmo(s32 amount);
 
@@ -32,12 +32,15 @@ public:
 	void activateDamageBoost(f32 duration);
 	void activateGodMode(f32 duration);
 
+	void resetAnimations();
+
 	bool hasSpeedBoost() const { return m_speedBoost; }
 	bool hasDamageBoost() const { return m_damageBoost; }
 	bool hasGodMode() const { return m_godMode; }
 	f32 getSpeedBoostTimer() const { return m_speedBoostTimer; }
 	f32 getDamageBoostTimer() const { return m_damageBoostTimer; }
 	f32 getGodModeTimer() const { return m_godModeTimer; }
+
 
 	f32 getRotationY() const { return m_rotationY; }
 	bool isShooting() const { return m_isShooting; }

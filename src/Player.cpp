@@ -1,5 +1,6 @@
 #include "Player.h"
 #include <cmath>
+#include <iostream>
 
 static const f32 PLAYER_SPEED = 200.0f;
 static const f32 GUN_FIRE_RATE = 0.8f;
@@ -96,9 +97,10 @@ Player::~Player()
 		m_soundEngine->drop();
 }
 
-void Player::reset()
+void Player::reset(s32 m_healthUpgradeLevel)
 {
-	m_health = m_maxHealth;
+	std::cout << "Max health is" << m_maxHealth << std::endl;
+	m_health = PLAYER_HEALTH_START + m_healthUpgradeLevel * 25;
 	m_ammo = PLAYER_AMMO_START;
 	m_isDead = false;
 	m_isMoving = false;
@@ -282,6 +284,8 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 	if (input.isKeyDown(KEY_KEY_A)) { moveDir -= camRight;   moving = true; }
 	if (input.isKeyDown(KEY_KEY_D)) { moveDir += camRight;   moving = true; }
 
+
+
 	if (moveDir.getLength() > 0)
 		moveDir.normalize();
 
@@ -337,6 +341,7 @@ void Player::handleShooting(f32 deltaTime, InputHandler& input)
 				m_playerNode->setMD2Animation(m_isMoving ? EMAT_RUN : EMAT_STAND);
 				if (m_weaponNode)
 					m_weaponNode->setMD2Animation(m_isMoving ? EMAT_RUN : EMAT_STAND);
+
 			}
 		}
 	}
@@ -443,6 +448,21 @@ void Player::activateGodMode(f32 duration)
 {
 	m_godMode = true;
 	m_godModeTimer = duration;
+}
+
+void Player::resetAnimations()
+{
+	if (m_playerNode)
+	{
+		m_playerNode->setMD2Animation(EMAT_STAND);
+		m_playerNode->setLoopMode(true);
+	}
+	if (m_weaponNode)
+	{
+		m_weaponNode->setVisible(true);
+		m_weaponNode->setMD2Animation(EMAT_STAND);
+		m_weaponNode->setLoopMode(true);
+	}
 }
 
 void Player::setMaxHealth(s32 maxHP)

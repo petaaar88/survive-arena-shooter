@@ -52,7 +52,7 @@ Game::Game()
 	, m_killText(nullptr)
 	, m_killCount(0)
 	, m_moneyText(nullptr)
-	, m_money(0)
+	, m_money(1000)
 	, m_powerupIcons{nullptr, nullptr, nullptr}
 	, m_powerupTimers{nullptr, nullptr, nullptr}
 	, m_powerupTextures{nullptr, nullptr, nullptr}
@@ -1541,9 +1541,10 @@ void Game::resetGame()
 		p->setCollected(true);
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
+	m_player->resetAnimations();
+
 	// Reset player (apply health upgrade)
-	m_player->setMaxHealth(100 + m_healthUpgradeLevel * 25);
-	m_player->reset();
+	m_player->reset(m_healthUpgradeLevel);
 
 	// Reset game state
 	m_gameTimer = GAME_DURATION;
@@ -1610,6 +1611,7 @@ void Game::updateMenu()
 			// Clean up testing powerups before starting game
 			for (Powerup* pw : m_powerups) delete pw;
 			m_powerups.clear();
+			m_player->reset(m_healthUpgradeLevel);
 
 			m_state = GameState::PLAYING;
 			m_device->getCursorControl()->setVisible(false);
