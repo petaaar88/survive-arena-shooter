@@ -17,6 +17,7 @@ static const s32 WAVE3_MAX = 10;
 static const f32 WAVE1_SPAWN_INTERVAL = 5.0f;
 static const f32 WAVE2_SPAWN_INTERVAL = 2.0f;
 static const f32 WAVE3_SPAWN_INTERVAL = 1.0f;
+static const f32 GLOBAL_ATTACK_COOLDOWN = 1.5f;
 
 // Pickup system
 static const f32 PICKUP_SPAWN_MIN = 8.0f;
@@ -551,7 +552,7 @@ void Game::run()
 
 	while (m_device->run())
 	{
-		std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
+		//std::cout << "X:" << m_player->getPosition().X << ", Y:" << m_player->getPosition().Y << ", Z:" << m_player->getPosition().Z << std::endl;
 		if (!m_device->isWindowActive())
 		{
 			m_device->yield();
@@ -665,11 +666,6 @@ void Game::updatePlaying(f32 deltaTime)
 	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
-	// Test spawn keys (manual, not part of wave system)
-	if (m_input.consumeKeyPress(KEY_KEY_1)) spawnEnemyAtGate(0);
-	if (m_input.consumeKeyPress(KEY_KEY_2)) spawnEnemyAtGate(1);
-	if (m_input.consumeKeyPress(KEY_KEY_3)) spawnEnemyAtGate(2);
-	if (m_input.consumeKeyPress(KEY_KEY_4)) spawnEnemyAtGate(3);
 
 	// Wave system: timer and auto-spawning
 	m_gameTimer -= deltaTime;
@@ -706,7 +702,7 @@ void Game::updatePlaying(f32 deltaTime)
 	else
 	{
 		m_currentWave = 3;
-		maxBasic = 4; maxFast = 6;
+		maxBasic = 5; maxFast = 3;
 		spawnInterval = WAVE3_SPAWN_INTERVAL;
 	}
 
@@ -885,16 +881,23 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 6. Check if any enemy's attack trigger overlaps player
-	for (Enemy* enemy : m_enemies)
+	// 6. Check if any enemy's attack trigger overlaps player (one at a time with global cooldown)
+	m_attackCooldown -= deltaTime;
+	if (m_attackCooldown <= 0.0f)
 	{
-		if (!enemy->isDead()
-			&& enemy->getAttackTrigger() && m_player->getBody()
-			&& m_physics->isGhostOverlapping(enemy->getAttackTrigger(), m_player->getBody())
-			&& enemy->wantsToDealDamage())
+		m_attackCooldown = 0.0f;
+		for (Enemy* enemy : m_enemies)
 		{
-			m_player->takeDamage(enemy->getAttackDamage());
-			enemy->resetAttackCooldown();
+			if (!enemy->isDead()
+				&& enemy->getAttackTrigger() && m_player->getBody()
+				&& m_physics->isGhostOverlapping(enemy->getAttackTrigger(), m_player->getBody())
+				&& enemy->wantsToDealDamage())
+			{
+				m_player->takeDamage(enemy->getAttackDamage());
+				enemy->resetAttackCooldown();
+				m_attackCooldown = GLOBAL_ATTACK_COOLDOWN;
+				break;
+			}
 		}
 	}
 

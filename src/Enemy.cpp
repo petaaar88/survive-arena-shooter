@@ -4,7 +4,7 @@
 #include <vector>
 
 static const f32 ENEMY_SPEED = 160.0f;
-static const f32 ENEMY_FAST_SPEED = 320.0f;
+static const f32 ENEMY_FAST_SPEED = 270.0f;
 static const f32 ENEMY_ATTACK_RANGE = 45.0f;
 static const f32 ENEMY_CHASE_RANGE = 500.0f;
 static const f32 ENEMY_ATTACK_COOLDOWN = 1.0f;
@@ -104,8 +104,8 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 		if (m_animNode)
 		{
 			const char* texPath = (m_type == EnemyType::FAST)
-				? "assets/models/enemy/ctf_b.pcx"
-				: "assets/models/enemy/ctf_r.pcx";
+				? "assets/models/enemy/ctf_r.pcx"
+				: "assets/models/enemy/ctf_b.pcx";
 			m_animNode->setMaterialTexture(0, driver->getTexture(texPath));
 			m_animNode->setMaterialFlag(EMF_LIGHTING, false);
 			m_animNode->setMaterialFlag(EMF_FOG_ENABLE, true);

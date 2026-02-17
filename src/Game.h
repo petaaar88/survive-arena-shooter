@@ -96,6 +96,9 @@ private:
 	f32 m_spawnTimer;
 	s32 m_currentWave;
 
+	// Global attack cooldown (only one enemy attacks at a time)
+	f32 m_attackCooldown = 0.0f;
+
 	// Gate spawn positions (for enemy spawning)
 	std::vector<vector3df> m_gatePositions;
 
