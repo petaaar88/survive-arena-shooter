@@ -23,6 +23,10 @@ public:
 	void takeDamage(s32 amount);
 	void addAmmo(s32 amount);
 
+	void setMaxHealth(s32 maxHP);
+	s32 getMaxHealth() const { return m_maxHealth; }
+	void setSkin(IVideoDriver* driver, const char* texturePath);
+
 	// Powerup activation
 	void activateSpeedBoost(f32 duration);
 	void activateDamageBoost(f32 duration);
@@ -68,6 +72,7 @@ private:
 	f32 m_painTimer;
 	s32 m_ammo;
 	s32 m_health;
+	s32 m_maxHealth;
 	btCollisionObject* m_lastHitObject;
 	DebugRay m_debugRay;
 

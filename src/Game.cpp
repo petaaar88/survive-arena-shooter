@@ -60,9 +60,21 @@ Game::Game()
 	, m_menuBgTex(nullptr)
 	, m_logoTex(nullptr)
 	, m_playBtnTex(nullptr)
-	, m_creditsBtnTex(nullptr)
+	, m_customizeBtnTex(nullptr)
 	, m_exitBtnTex(nullptr)
 	, m_resumeBtnTex(nullptr)
+	, m_backBtnTex(nullptr)
+	, m_totalMoney(0)
+	, m_healthUpgradeLevel(0)
+	, m_damageUpgradeLevel(0)
+	, m_powerupTimeLevel(0)
+	, m_selectedSkin(0)
+	, m_previewedSkin(0)
+	, m_skinUnlocked{true, false, false}
+	, m_skinPreview{nullptr, nullptr, nullptr}
+	, m_skinPreviewWeapon{nullptr, nullptr, nullptr}
+	, m_skinPreviewPivot{nullptr, nullptr, nullptr}
+	, m_skinPreviewRotation(0.0f)
 	, m_cameraYaw(0.0f)
 	, m_lastTime(0)
 	, m_centerX(0)
@@ -186,10 +198,53 @@ void Game::init()
 	// Load menu textures
 	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
 	m_logoTex = m_driver->getTexture("assets/textures/UI/logo.png");
-	m_playBtnTex = m_driver->getTexture("assets/textures/UI/play.png");
-	m_creditsBtnTex = m_driver->getTexture("assets/textures/UI/credits.png");
-	m_exitBtnTex = m_driver->getTexture("assets/textures/UI/exit.png");
-	m_resumeBtnTex = m_driver->getTexture("assets/textures/UI/resume.png");
+	m_playBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Start/Start1.png");
+	m_customizeBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Customize/Customize1.png");
+	m_exitBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Quit/Quit1.png");
+	m_resumeBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Resume/Resume1.png");
+	m_backBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Back/Back1.png");
+
+	// Create skin preview models (hidden, used in customize screen)
+	{
+		static const char* skinTexPaths[3] = {
+			"assets/models/player/blade.pcx",
+			"assets/models/player/messiah.pcx",
+			"assets/models/player/caleb_undead.pcx"
+		};
+		IAnimatedMesh* previewMesh = m_smgr->getMesh("assets/models/player/tris.md2");
+		IAnimatedMesh* weaponMesh = m_smgr->getMesh("assets/models/player/weapon.md2");
+
+		for (int i = 0; i < 3; i++)
+		{
+			// Create a pivot node for rotation
+			m_skinPreviewPivot[i] = m_smgr->addEmptySceneNode();
+			m_skinPreviewPivot[i]->setPosition(vector3df(-5000 + i * 120, 0, 0));
+			m_skinPreviewPivot[i]->setVisible(false);
+
+			if (previewMesh)
+			{
+				m_skinPreview[i] = m_smgr->addAnimatedMeshSceneNode(previewMesh, m_skinPreviewPivot[i]);
+				if (m_skinPreview[i])
+				{
+					m_skinPreview[i]->setMaterialTexture(0, m_driver->getTexture(skinTexPaths[i]));
+					m_skinPreview[i]->setMaterialFlag(EMF_LIGHTING, false);
+					m_skinPreview[i]->setMD2Animation(EMAT_STAND);
+					m_skinPreview[i]->setPosition(vector3df(0, 0, 0));
+				}
+			}
+
+			if (weaponMesh && m_skinPreview[i])
+			{
+				m_skinPreviewWeapon[i] = m_smgr->addAnimatedMeshSceneNode(weaponMesh, m_skinPreview[i]);
+				if (m_skinPreviewWeapon[i])
+				{
+					m_skinPreviewWeapon[i]->setMaterialTexture(0, m_driver->getTexture("assets/models/player/Weapon.pcx"));
+					m_skinPreviewWeapon[i]->setMaterialFlag(EMF_LIGHTING, false);
+					m_skinPreviewWeapon[i]->setMD2Animation(EMAT_STAND);
+				}
+			}
+		}
+	}
 
 	// Calculate button rects (centered on screen)
 	{
@@ -202,10 +257,10 @@ void Game::init()
 		s32 logoY = 120;
 		m_logoRect = rect<s32>(cx - logoW/2, logoY, cx + logoW/2, logoY + logoH);
 
-		// Play and Credits grouped together below logo
+		// Play and Customize grouped together below logo
 		s32 groupStartY = logoY + logoH + 40;
 		m_playBtnRect = rect<s32>(cx - btnW/2, groupStartY, cx + btnW/2, groupStartY + btnH);
-		m_creditsBtnRect = rect<s32>(cx - btnW/2, groupStartY + btnH + spacing, cx + btnW/2, groupStartY + 2*btnH + spacing);
+		m_customizeBtnRect = rect<s32>(cx - btnW/2, groupStartY + btnH + spacing, cx + btnW/2, groupStartY + 2*btnH + spacing);
 
 		// Exit button lower, separated from the group
 		s32 exitY = ss.Height - btnH - 60;
@@ -655,8 +710,8 @@ void Game::run()
 		case GameState::PAUSED:
 			updatePaused();
 			break;
-		case GameState::CREDITS:
-			updateCredits();
+		case GameState::CUSTOMIZE:
+			updateCustomize();
 			break;
 		case GameState::GAMEOVER:
 			updateGameOver(deltaTime);
@@ -682,13 +737,15 @@ void Game::run()
 		}
 		m_driver->beginScene(true, true, clearColor);
 
-		if (m_state == GameState::MENU || m_state == GameState::CREDITS)
+		if (m_state == GameState::MENU)
 		{
-			// Menu: draw background only (no 3D scene)
-			if (m_state == GameState::MENU)
-				drawMenu();
-			else
-				drawCredits();
+			drawMenu();
+		}
+		else if (m_state == GameState::CUSTOMIZE)
+		{
+			// Render 3D scene for skin previews, then overlay 2D
+			m_smgr->drawAll();
+			drawCustomize();
 		}
 		else
 		{
@@ -957,9 +1014,9 @@ void Game::updatePlaying(f32 deltaTime)
 	btCollisionObject* hitObject = m_player->getLastHitObject();
 	if (hitObject)
 	{
-		s32 shotDamage = 25;
+		s32 shotDamage = 25 + m_damageUpgradeLevel * 10;
 		if (m_player->hasGodMode()) shotDamage = 9999;
-		else if (m_player->hasDamageBoost()) shotDamage = 100;
+		else if (m_player->hasDamageBoost()) shotDamage = shotDamage * 4;
 
 		for (Enemy* enemy : m_enemies)
 		{
@@ -1053,7 +1110,7 @@ void Game::updatePlaying(f32 deltaTime)
 			&& pw->getTrigger() && m_player->getBody()
 			&& m_physics->isGhostOverlapping(pw->getTrigger(), m_player->getBody()))
 		{
-			f32 dur = pw->getDuration();
+			f32 dur = pw->getDuration() + m_powerupTimeLevel * 3.0f;
 			switch (pw->getType())
 			{
 			case PowerupType::SPEED_BOOST:  m_player->activateSpeedBoost(dur); break;
@@ -1130,6 +1187,7 @@ void Game::updateTesting(f32 deltaTime)
 	// ESC → back to menu
 	if (m_input.consumeKeyPress(KEY_ESCAPE))
 	{
+		m_totalMoney += m_money;
 		resetGame();
 		m_state = GameState::MENU;
 		m_device->getCursorControl()->setVisible(true);
@@ -1217,9 +1275,9 @@ void Game::updateTesting(f32 deltaTime)
 	btCollisionObject* hitObject = m_player->getLastHitObject();
 	if (hitObject)
 	{
-		s32 shotDamage = 25;
+		s32 shotDamage = 25 + m_damageUpgradeLevel * 10;
 		if (m_player->hasGodMode()) shotDamage = 9999;
-		else if (m_player->hasDamageBoost()) shotDamage = 100;
+		else if (m_player->hasDamageBoost()) shotDamage = shotDamage * 4;
 
 		for (Enemy* enemy : m_enemies)
 		{
@@ -1327,7 +1385,7 @@ void Game::updateTesting(f32 deltaTime)
 			&& pw->getTrigger() && m_player->getBody()
 			&& m_physics->isGhostOverlapping(pw->getTrigger(), m_player->getBody()))
 		{
-			f32 dur = pw->getDuration();
+			f32 dur = pw->getDuration() + m_powerupTimeLevel * 3.0f;
 			switch (pw->getType())
 			{
 			case PowerupType::SPEED_BOOST:  m_player->activateSpeedBoost(dur); break;
@@ -1352,6 +1410,7 @@ void Game::updateGameOver(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
+		m_totalMoney += m_money;
 		resetGame();
 		m_state = GameState::MENU;
 		m_device->getCursorControl()->setVisible(true);
@@ -1363,6 +1422,7 @@ void Game::updateWin(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
+		m_totalMoney += m_money;
 		resetGame();
 		m_state = GameState::MENU;
 		m_device->getCursorControl()->setVisible(true);
@@ -1481,7 +1541,8 @@ void Game::resetGame()
 		p->setCollected(true);
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
-	// Reset player
+	// Reset player (apply health upgrade)
+	m_player->setMaxHealth(100 + m_healthUpgradeLevel * 25);
 	m_player->reset();
 
 	// Reset game state
@@ -1556,9 +1617,22 @@ void Game::updateMenu()
 			m_lastTime = m_device->getTimer()->getTime();
 			setHUDVisible(true);
 		}
-		else if (isClickInRect(m_creditsBtnRect))
+		else if (isClickInRect(m_customizeBtnRect))
 		{
-			m_state = GameState::CREDITS;
+			m_state = GameState::CUSTOMIZE;
+			m_skinPreviewRotation = 0.0f;
+			m_previewedSkin = m_selectedSkin;
+			m_lastTime = m_device->getTimer()->getTime();
+			// Show only the previewed skin's model
+			for (int i = 0; i < 3; i++)
+			{
+				if (m_skinPreviewPivot[i])
+					m_skinPreviewPivot[i]->setVisible(i == m_previewedSkin);
+			}
+			// Position camera to look at the previewed model
+			f32 modelX = -5000 + m_previewedSkin * 120;
+			m_camera->setPosition(vector3df(modelX, 40, -150));
+			m_camera->setTarget(vector3df(modelX, 20, 0));
 		}
 		else if (isClickInRect(m_exitBtnRect))
 		{
@@ -1587,6 +1661,7 @@ void Game::updatePaused()
 		}
 		else if (isClickInRect(m_pauseExitBtnRect))
 		{
+			m_totalMoney += m_money;
 			resetGame();
 			m_state = GameState::MENU;
 			m_device->getCursorControl()->setVisible(true);
@@ -1595,11 +1670,121 @@ void Game::updatePaused()
 	}
 }
 
-void Game::updateCredits()
+void Game::updateCustomize()
 {
-	if (m_input.consumeKeyPress(KEY_ESCAPE) || m_input.consumeLeftClick())
-	{
+	// Rotate preview models
+	u32 now = m_device->getTimer()->getTime();
+	f32 dt = (now - m_lastTime) / 1000.0f;
+	m_lastTime = now;
+	m_skinPreviewRotation += 40.0f * dt;
+	if (m_skinPreviewRotation > 360.0f) m_skinPreviewRotation -= 360.0f;
+	// Only rotate the currently previewed/visible model
+	if (m_skinPreviewPivot[m_previewedSkin])
+		m_skinPreviewPivot[m_previewedSkin]->setRotation(vector3df(0, m_skinPreviewRotation, 0));
+
+	auto hidePreviewsAndGoMenu = [this]() {
+		for (int i = 0; i < 3; i++)
+		{
+			if (m_skinPreviewPivot[i])
+				m_skinPreviewPivot[i]->setVisible(false);
+		}
 		m_state = GameState::MENU;
+	};
+
+	if (m_input.consumeKeyPress(KEY_ESCAPE))
+	{
+		hidePreviewsAndGoMenu();
+		return;
+	}
+
+	if (m_input.consumeLeftClick())
+	{
+		// Back button
+		if (isClickInRect(m_custBackBtnRect))
+		{
+			hidePreviewsAndGoMenu();
+			return;
+		}
+
+		// Health upgrade
+		if (isClickInRect(m_custHealthBtnRect) && m_healthUpgradeLevel < 5)
+		{
+			s32 cost = getUpgradeCost(m_healthUpgradeLevel);
+			if (m_totalMoney >= cost)
+			{
+				m_totalMoney -= cost;
+				m_healthUpgradeLevel++;
+			}
+		}
+
+		// Damage upgrade
+		if (isClickInRect(m_custDamageBtnRect) && m_damageUpgradeLevel < 5)
+		{
+			s32 cost = getUpgradeCost(m_damageUpgradeLevel);
+			if (m_totalMoney >= cost)
+			{
+				m_totalMoney -= cost;
+				m_damageUpgradeLevel++;
+			}
+		}
+
+		// Powerup time upgrade
+		if (isClickInRect(m_custPowerupBtnRect) && m_powerupTimeLevel < 5)
+		{
+			s32 cost = getUpgradeCost(m_powerupTimeLevel);
+			if (m_totalMoney >= cost)
+			{
+				m_totalMoney -= cost;
+				m_powerupTimeLevel++;
+			}
+		}
+
+		// Skin preview buttons — switch which model is shown
+		for (int i = 0; i < 3; i++)
+		{
+			if (isClickInRect(m_custSkinPreviewBtnRects[i]) && i != m_previewedSkin)
+			{
+				// Hide old preview, show new one
+				if (m_skinPreviewPivot[m_previewedSkin])
+					m_skinPreviewPivot[m_previewedSkin]->setVisible(false);
+				m_previewedSkin = i;
+				if (m_skinPreviewPivot[i])
+				{
+					m_skinPreviewPivot[i]->setVisible(true);
+					m_skinPreviewPivot[i]->setRotation(vector3df(0, m_skinPreviewRotation, 0));
+				}
+				// Move camera to look at the new model
+				f32 modelX = -5000 + i * 120;
+				m_camera->setPosition(vector3df(modelX, 40, -150));
+				m_camera->setTarget(vector3df(modelX, 20, 0));
+			}
+		}
+
+		// Skin select button — equip or buy the currently previewed skin
+		static const s32 skinPrices[3] = { 0, 150, 250 };
+		static const char* skinPaths[3] = {
+			"assets/models/player/blade.pcx",
+			"assets/models/player/messiah.pcx",
+			"assets/models/player/caleb_undead.pcx"
+		};
+		{
+			int i = m_previewedSkin;
+			if (isClickInRect(m_custSkinSelectBtnRects[i]) && m_selectedSkin != i)
+			{
+				if (m_skinUnlocked[i])
+				{
+					m_selectedSkin = i;
+					m_player->setSkin(m_driver, skinPaths[i]);
+				}
+				else if (m_totalMoney >= skinPrices[i])
+				{
+					m_totalMoney -= skinPrices[i];
+					m_skinUnlocked[i] = true;
+					m_selectedSkin = i;
+					m_player->setSkin(m_driver, skinPaths[i]);
+				}
+			}
+		}
 	}
 }
 
@@ -1631,10 +1816,10 @@ void Game::drawMenu()
 		m_driver->draw2DImage(m_playBtnTex, m_playBtnRect,
 			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
-	if (m_creditsBtnTex)
+	if (m_customizeBtnTex)
 	{
-		dimension2d<u32> ts = m_creditsBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_creditsBtnTex, m_creditsBtnRect,
+		dimension2d<u32> ts = m_customizeBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_customizeBtnTex, m_customizeBtnRect,
 			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
 	if (m_exitBtnTex)
@@ -1670,29 +1855,202 @@ void Game::drawPause()
 	}
 }
 
-void Game::drawCredits()
+s32 Game::getUpgradeCost(s32 level) const
+{
+	return 50 + level * 50;
+}
+
+void Game::drawCustomize()
 {
 	dimension2d<u32> ss = m_driver->getScreenSize();
+	s32 cx = ss.Width / 2;
 
-	// Background
-	if (m_menuBgTex)
+	// Semi-transparent dark overlay so text is readable over 3D scene
+	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
+		rect<s32>(0, 0, ss.Width, ss.Height));
+
+	IGUIFont* font = m_gui->getSkin()->getFont();
+	if (!font) return;
+
+	// Title
+	font->draw(L"CUSTOMIZE", rect<s32>(0, 30, ss.Width, 70),
+		SColor(255, 255, 255, 255), true, true);
+
+	// Money display
+	wchar_t moneyStr[64];
+	swprintf(moneyStr, 64, L"Money: $%d", m_totalMoney);
+	font->draw(moneyStr, rect<s32>(0, 75, ss.Width, 110),
+		SColor(255, 255, 215, 0), true, true);
+
+	// Upgrade rows
+	s32 rowW = 500, rowH = 45, rowSpacing = 12;
+	s32 startY = 130;
+	s32 rowX = cx - rowW / 2;
+
+	// --- Health Upgrade ---
+	m_custHealthBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
 	{
-		dimension2d<u32> texSize = m_menuBgTex->getOriginalSize();
-		m_driver->draw2DImage(m_menuBgTex,
-			rect<s32>(0, 0, ss.Width, ss.Height),
-			rect<s32>(0, 0, texSize.Width, texSize.Height));
+		bool maxed = m_healthUpgradeLevel >= 5;
+		s32 cost = maxed ? 0 : getUpgradeCost(m_healthUpgradeLevel);
+		bool canAfford = !maxed && m_totalMoney >= cost;
+
+		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
+		m_driver->draw2DRectangle(bgColor, m_custHealthBtnRect);
+
+		wchar_t text[128];
+		if (maxed)
+			swprintf(text, 128, L"[+] Health: Lv.%d / 5  (+25 HP)  MAX", m_healthUpgradeLevel);
+		else
+			swprintf(text, 128, L"[+] Health: Lv.%d / 5  (+25 HP)  Cost: $%d", m_healthUpgradeLevel, cost);
+
+		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
+		font->draw(text, m_custHealthBtnRect, textColor, true, true);
 	}
 
-	// Credits text
-	IGUIFont* font = m_gui->getSkin()->getFont();
-	if (font)
+	// --- Damage Upgrade ---
+	startY += rowH + rowSpacing;
+	m_custDamageBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
 	{
-		font->draw(L"CREDITS", rect<s32>(0, ss.Height/4, ss.Width, ss.Height/4 + 40),
+		bool maxed = m_damageUpgradeLevel >= 5;
+		s32 cost = maxed ? 0 : getUpgradeCost(m_damageUpgradeLevel);
+		bool canAfford = !maxed && m_totalMoney >= cost;
+
+		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
+		m_driver->draw2DRectangle(bgColor, m_custDamageBtnRect);
+
+		wchar_t text[128];
+		if (maxed)
+			swprintf(text, 128, L"[+] Damage: Lv.%d / 5  (+10 DMG)  MAX", m_damageUpgradeLevel);
+		else
+			swprintf(text, 128, L"[+] Damage: Lv.%d / 5  (+10 DMG)  Cost: $%d", m_damageUpgradeLevel, cost);
+
+		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
+		font->draw(text, m_custDamageBtnRect, textColor, true, true);
+	}
+
+	// --- Powerup Time Upgrade ---
+	startY += rowH + rowSpacing;
+	m_custPowerupBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
+	{
+		bool maxed = m_powerupTimeLevel >= 5;
+		s32 cost = maxed ? 0 : getUpgradeCost(m_powerupTimeLevel);
+		bool canAfford = !maxed && m_totalMoney >= cost;
+
+		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
+		m_driver->draw2DRectangle(bgColor, m_custPowerupBtnRect);
+
+		wchar_t text[128];
+		if (maxed)
+			swprintf(text, 128, L"[+] Powerup Time: Lv.%d / 5  (+3s)  MAX", m_powerupTimeLevel);
+		else
+			swprintf(text, 128, L"[+] Powerup Time: Lv.%d / 5  (+3s)  Cost: $%d", m_powerupTimeLevel, cost);
+
+		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
+		font->draw(text, m_custPowerupBtnRect, textColor, true, true);
+	}
+
+	// --- Skins (3D model is rendered behind this overlay) ---
+	startY += rowH + rowSpacing + 10;
+	font->draw(L"Skins:", rect<s32>(rowX, startY, rowX + rowW, startY + 30),
+		SColor(255, 255, 255, 255), false, true);
+	startY += 35;
+
+	// Preview buttons in a row to switch which skin model is shown
+	static const wchar_t* skinNames[3] = { L"Default", L"Messiah", L"Undead" };
+	static const s32 skinPrices[3] = { 0, 150, 250 };
+	s32 skinBtnW = 150, skinBtnH = 35, skinSpacing = 20;
+	s32 totalSkinW = 3 * skinBtnW + 2 * skinSpacing;
+	s32 skinStartX = cx - totalSkinW / 2;
+
+	for (int i = 0; i < 3; i++)
+	{
+		s32 bx = skinStartX + i * (skinBtnW + skinSpacing);
+		m_custSkinPreviewBtnRects[i] = rect<s32>(bx, startY, bx + skinBtnW, startY + skinBtnH);
+
+		// Background color: highlight the currently previewed skin
+		SColor bgColor;
+		if (m_previewedSkin == i)
+			bgColor = SColor(220, 0, 100, 180); // previewed = blue
+		else
+			bgColor = SColor(200, 60, 60, 60);  // not previewed = grey
+
+		m_driver->draw2DRectangle(bgColor, m_custSkinPreviewBtnRects[i]);
+
+		// Border for previewed skin
+		if (m_previewedSkin == i)
+		{
+			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
+				rect<s32>(bx - 2, startY - 2, bx + skinBtnW + 2, startY));
+			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
+				rect<s32>(bx - 2, startY + skinBtnH, bx + skinBtnW + 2, startY + skinBtnH + 2));
+			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
+				rect<s32>(bx - 2, startY, bx, startY + skinBtnH));
+			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
+				rect<s32>(bx + skinBtnW, startY, bx + skinBtnW + 2, startY + skinBtnH));
+		}
+
+		font->draw(skinNames[i], m_custSkinPreviewBtnRects[i],
 			SColor(255, 255, 255, 255), true, true);
-		font->draw(L"Survive - Arena Shooter", rect<s32>(0, ss.Height/4 + 60, ss.Width, ss.Height/4 + 100),
-			SColor(255, 255, 200, 0), true, true);
-		font->draw(L"Click or press ESC to go back", rect<s32>(0, ss.Height - 80, ss.Width, ss.Height - 40),
-			SColor(255, 180, 180, 180), true, true);
+	}
+
+	// Select/Buy button below the 3D model area
+	s32 selectBtnW = 200, selectBtnH = 40;
+	s32 selectBtnY = ss.Height - 80 - selectBtnH - 10;
+	s32 selectBtnX = cx - selectBtnW / 2;
+	{
+		int i = m_previewedSkin;
+		m_custSkinSelectBtnRects[i] = rect<s32>(selectBtnX, selectBtnY, selectBtnX + selectBtnW, selectBtnY + selectBtnH);
+
+		SColor bgColor;
+		wchar_t btnText[64];
+
+		if (m_selectedSkin == i)
+		{
+			bgColor = SColor(220, 0, 100, 180); // already equipped = blue
+			swprintf(btnText, 64, L"Equipped");
+		}
+		else if (m_skinUnlocked[i])
+		{
+			bgColor = SColor(200, 0, 120, 0); // owned = green
+			swprintf(btnText, 64, L"Select");
+		}
+		else if (m_totalMoney >= skinPrices[i])
+		{
+			bgColor = SColor(200, 120, 100, 0); // can buy = orange
+			swprintf(btnText, 64, L"Buy ($%d)", skinPrices[i]);
+		}
+		else
+		{
+			bgColor = SColor(200, 70, 30, 30); // can't afford = dark red
+			swprintf(btnText, 64, L"$%d", skinPrices[i]);
+		}
+
+		m_driver->draw2DRectangle(bgColor, m_custSkinSelectBtnRects[i]);
+
+		// Border
+		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
+			rect<s32>(selectBtnX - 1, selectBtnY - 1, selectBtnX + selectBtnW + 1, selectBtnY));
+		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
+			rect<s32>(selectBtnX - 1, selectBtnY + selectBtnH, selectBtnX + selectBtnW + 1, selectBtnY + selectBtnH + 1));
+		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
+			rect<s32>(selectBtnX - 1, selectBtnY, selectBtnX, selectBtnY + selectBtnH));
+		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
+			rect<s32>(selectBtnX + selectBtnW, selectBtnY, selectBtnX + selectBtnW + 1, selectBtnY + selectBtnH));
+
+		font->draw(btnText, m_custSkinSelectBtnRects[i],
+			SColor(255, 255, 255, 255), true, true);
+	}
+
+	// --- Back Button ---
+	s32 backW = 200, backH = 60;
+	s32 backY = ss.Height - backH - 10;
+	m_custBackBtnRect = rect<s32>(cx - backW/2, backY, cx + backW/2, backY + backH);
+
+	if (m_backBtnTex)
+	{
+		dimension2d<u32> ts = m_backBtnTex->getOriginalSize();
+		m_driver->draw2DImage(m_backBtnTex, m_custBackBtnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
 }
 

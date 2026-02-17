@@ -36,6 +36,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	, m_painTimer(0.0f)
 	, m_ammo(PLAYER_AMMO_START)
 	, m_health(PLAYER_HEALTH_START)
+	, m_maxHealth(PLAYER_HEALTH_START)
 	, m_lastHitObject(nullptr)
 	, m_debugRay{ vector3df(0,0,0), vector3df(0,0,0), false, 0.0f }
 	, m_speedBoost(false)
@@ -55,7 +56,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		m_playerNode = smgr->addAnimatedMeshSceneNode(playerMesh);
 		if (m_playerNode)
 		{
-			m_playerNode->setMaterialTexture(0, driver->getTexture("assets/models/player/caleb.pcx"));
+			m_playerNode->setMaterialTexture(0, driver->getTexture("assets/models/player/blade.pcx"));
 			m_playerNode->setMaterialFlag(EMF_LIGHTING, false);
 			m_playerNode->setMaterialFlag(EMF_FOG_ENABLE, true);
 			m_playerNode->setPosition(vector3df(0, 0, 0));
@@ -97,7 +98,7 @@ Player::~Player()
 
 void Player::reset()
 {
-	m_health = PLAYER_HEALTH_START;
+	m_health = m_maxHealth;
 	m_ammo = PLAYER_AMMO_START;
 	m_isDead = false;
 	m_isMoving = false;
@@ -442,4 +443,19 @@ void Player::activateGodMode(f32 duration)
 {
 	m_godMode = true;
 	m_godModeTimer = duration;
+}
+
+void Player::setMaxHealth(s32 maxHP)
+{
+	m_maxHealth = maxHP;
+}
+
+void Player::setSkin(IVideoDriver* driver, const char* texturePath)
+{
+	if (m_playerNode && driver)
+	{
+		ITexture* tex = driver->getTexture(texturePath);
+		if (tex)
+			m_playerNode->setMaterialTexture(0, tex);
+	}
 }

@@ -17,7 +17,7 @@ using namespace scene;
 using namespace video;
 using namespace gui;
 
-enum class GameState { MENU, PLAYING, TESTING, PAUSED, CREDITS, GAMEOVER, WIN };
+enum class GameState { MENU, PLAYING, TESTING, PAUSED, CUSTOMIZE, GAMEOVER, WIN };
 
 class Game
 {
@@ -37,7 +37,7 @@ private:
 	void updatePlaying(f32 deltaTime);
 	void updateTesting(f32 deltaTime);
 	void updatePaused();
-	void updateCredits();
+	void updateCustomize();
 	void updateGameOver(f32 deltaTime);
 	void updateWin(f32 deltaTime);
 	void updateCamera();
@@ -48,7 +48,7 @@ private:
 
 	void drawMenu();
 	void drawPause();
-	void drawCredits();
+	void drawCustomize();
 	void drawGameOver();
 	void drawWin();
 
@@ -123,16 +123,39 @@ private:
 	ITexture* m_menuBgTex;
 	ITexture* m_logoTex;
 	ITexture* m_playBtnTex;
-	ITexture* m_creditsBtnTex;
+	ITexture* m_customizeBtnTex;
 	ITexture* m_exitBtnTex;
 	ITexture* m_resumeBtnTex;
+	ITexture* m_backBtnTex;
 
 	// Logo + Button rects (screen space)
 	rect<s32> m_logoRect;
 	rect<s32> m_playBtnRect;
-	rect<s32> m_creditsBtnRect;
+	rect<s32> m_customizeBtnRect;
 	rect<s32> m_exitBtnRect;
 	rect<s32> m_resumeBtnRect;
 	rect<s32> m_pauseExitBtnRect;
 	rect<s32> m_endScreenExitBtnRect;
+
+	// Customize screen
+	s32 m_totalMoney;
+	s32 m_healthUpgradeLevel;
+	s32 m_damageUpgradeLevel;
+	s32 m_powerupTimeLevel;
+	s32 m_selectedSkin;
+	s32 m_previewedSkin;
+	bool m_skinUnlocked[3];
+	rect<s32> m_custHealthBtnRect;
+	rect<s32> m_custDamageBtnRect;
+	rect<s32> m_custPowerupBtnRect;
+	rect<s32> m_custSkinPreviewBtnRects[3];
+	rect<s32> m_custSkinSelectBtnRects[3];
+	rect<s32> m_custBackBtnRect;
+	s32 getUpgradeCost(s32 level) const;
+
+	// Skin preview models
+	IAnimatedMeshSceneNode* m_skinPreview[3];
+	IAnimatedMeshSceneNode* m_skinPreviewWeapon[3];
+	ISceneNode* m_skinPreviewPivot[3]; // parent nodes for rotation
+	f32 m_skinPreviewRotation;
 };
