@@ -27,6 +27,11 @@ static const s32 PICKUP_AMMO_AMOUNT = 7;
 // Powerup in-world lifetime (seconds before it despawns)
 static const f32 POWERUP_WORLD_LIFETIME = 15.0f;
 
+// Money rewards per enemy kill
+static const s32 MONEY_BASIC_KILL = 30;
+static const s32 MONEY_FAST_KILL = 50;
+static const s32 MONEY_FOG_KILL = 80;
+
 Game::Game()
 	: m_device(nullptr)
 	, m_driver(nullptr)
@@ -46,6 +51,8 @@ Game::Game()
 	, m_waveText(nullptr)
 	, m_killText(nullptr)
 	, m_killCount(0)
+	, m_moneyText(nullptr)
+	, m_money(0)
 	, m_powerupIcons{nullptr, nullptr, nullptr}
 	, m_powerupTimers{nullptr, nullptr, nullptr}
 	, m_powerupTextures{nullptr, nullptr, nullptr}
@@ -549,6 +556,17 @@ void Game::setupHUD()
 		m_killText->setOverrideColor(SColor(255, 255, 255, 255));
 	}
 
+	// Money (top-right, below kills)
+	{
+		s32 screenW = m_driver->getScreenSize().Width;
+		m_moneyText = m_gui->addStaticText(
+			L"$0",
+			rect<s32>(screenW - 250, 80, screenW - 10, 120),
+			false, false, 0, -1, false
+		);
+		m_moneyText->setOverrideColor(SColor(255, 255, 215, 0));
+	}
+
 	// Crosshair
 	ITexture* crosshairTex = m_driver->getTexture("assets/textures/hud/crosshair.png");
 	if (crosshairTex)
@@ -951,7 +969,10 @@ void Game::updatePlaying(f32 deltaTime)
 				bool wasDead = enemy->isDead();
 				enemy->takeDamage(shotDamage);
 				if (!wasDead && enemy->isDead())
+				{
 					m_killCount++;
+					m_money += (enemy->getType() == EnemyType::FAST) ? MONEY_FAST_KILL : MONEY_BASIC_KILL;
+				}
 				break;
 			}
 		}
@@ -963,7 +984,10 @@ void Game::updatePlaying(f32 deltaTime)
 				bool wasDead = fogEnemy->isDead();
 				fogEnemy->takeDamage(shotDamage);
 				if (!wasDead && fogEnemy->isDead())
+				{
 					m_killCount++;
+					m_money += MONEY_FOG_KILL;
+				}
 				break;
 			}
 		}
@@ -1106,6 +1130,7 @@ void Game::updateTesting(f32 deltaTime)
 	// ESC → back to menu
 	if (m_input.consumeKeyPress(KEY_ESCAPE))
 	{
+		resetGame();
 		m_state = GameState::MENU;
 		m_device->getCursorControl()->setVisible(true);
 		setHUDVisible(false);
@@ -1204,7 +1229,10 @@ void Game::updateTesting(f32 deltaTime)
 				bool wasDead = enemy->isDead();
 				enemy->takeDamage(shotDamage);
 				if (!wasDead && enemy->isDead())
+				{
 					m_killCount++;
+					m_money += (enemy->getType() == EnemyType::FAST) ? MONEY_FAST_KILL : MONEY_BASIC_KILL;
+				}
 				break;
 			}
 		}
@@ -1216,7 +1244,10 @@ void Game::updateTesting(f32 deltaTime)
 				bool wasDead = fogEnemy->isDead();
 				fogEnemy->takeDamage(shotDamage);
 				if (!wasDead && fogEnemy->isDead())
+				{
 					m_killCount++;
+					m_money += MONEY_FOG_KILL;
+				}
 				break;
 			}
 		}
@@ -1321,7 +1352,10 @@ void Game::updateGameOver(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
-		m_device->closeDevice();
+		resetGame();
+		m_state = GameState::MENU;
+		m_device->getCursorControl()->setVisible(true);
+		setHUDVisible(false);
 	}
 }
 
@@ -1329,7 +1363,10 @@ void Game::updateWin(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
-		m_device->closeDevice();
+		resetGame();
+		m_state = GameState::MENU;
+		m_device->getCursorControl()->setVisible(true);
+		setHUDVisible(false);
 	}
 }
 
@@ -1379,6 +1416,11 @@ void Game::updateHUD()
 	swprintf(killStr, 32, L"Kills: %d", m_killCount);
 	m_killText->setText(killStr);
 
+	// Money
+	wchar_t moneyStr[32];
+	swprintf(moneyStr, 32, L"$%d", m_money);
+	m_moneyText->setText(moneyStr);
+
 	// Powerup HUD indicators
 	bool active[3] = { m_player->hasSpeedBoost(), m_player->hasDamageBoost(), m_player->hasGodMode() };
 	f32 timers[3] = { m_player->getSpeedBoostTimer(), m_player->getDamageBoostTimer(), m_player->getGodModeTimer() };
@@ -1412,11 +1454,54 @@ void Game::setHUDVisible(bool visible)
 	if (m_timerText) m_timerText->setVisible(visible);
 	if (m_waveText) m_waveText->setVisible(visible);
 	if (m_killText) m_killText->setVisible(visible);
+	if (m_moneyText) m_moneyText->setVisible(visible);
 	if (crosshair) crosshair->setVisible(false); // crosshair managed separately
 	for (int i = 0; i < 3; i++)
 	{
 		if (m_powerupIcons[i]) m_powerupIcons[i]->setVisible(false);
 		if (m_powerupTimers[i]) m_powerupTimers[i]->setVisible(false);
+	}
+}
+
+void Game::resetGame()
+{
+	// Clear all enemies
+	for (Enemy* e : m_enemies) delete e;
+	m_enemies.clear();
+
+	for (FogEnemy* f : m_fogEnemies) delete f;
+	m_fogEnemies.clear();
+
+	// Clear powerups
+	for (Powerup* pw : m_powerups) delete pw;
+	m_powerups.clear();
+
+	// Reset pickups (all hidden)
+	for (Pickup* p : m_pickups)
+		p->setCollected(true);
+	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
+
+	// Reset player
+	m_player->reset();
+
+	// Reset game state
+	m_gameTimer = GAME_DURATION;
+	m_spawnTimer = 0.0f;
+	m_currentWave = 1;
+	m_killCount = 0;
+	m_money = 0;
+	m_attackCooldown = 0.0f;
+	m_cameraYaw = 0.0f;
+	m_powerupSpawnedWave[0] = false;
+	m_powerupSpawnedWave[1] = false;
+	m_powerupSpawnedWave[2] = false;
+
+	// Stop chasing sound if playing
+	if (m_chasingSound)
+	{
+		m_chasingSound->stop();
+		m_chasingSound->drop();
+		m_chasingSound = nullptr;
 	}
 }
 
@@ -1502,7 +1587,10 @@ void Game::updatePaused()
 		}
 		else if (isClickInRect(m_pauseExitBtnRect))
 		{
-			m_device->closeDevice();
+			resetGame();
+			m_state = GameState::MENU;
+			m_device->getCursorControl()->setVisible(true);
+			setHUDVisible(false);
 		}
 	}
 }
@@ -1626,6 +1714,11 @@ void Game::drawGameOver()
 		swprintf(killStr, 64, L"Kills: %d", m_killCount);
 		font->draw(killStr, rect<s32>(0, ss.Height/2 - 20, ss.Width, ss.Height/2 + 20),
 			SColor(255, 255, 255, 255), true, true);
+
+		wchar_t moneyStr[64];
+		swprintf(moneyStr, 64, L"Earned: $%d", m_money);
+		font->draw(moneyStr, rect<s32>(0, ss.Height/2 + 20, ss.Width, ss.Height/2 + 60),
+			SColor(255, 255, 215, 0), true, true);
 	}
 
 	if (m_exitBtnTex)
@@ -1654,6 +1747,11 @@ void Game::drawWin()
 		swprintf(killStr, 64, L"Kills: %d", m_killCount);
 		font->draw(killStr, rect<s32>(0, ss.Height/2 - 20, ss.Width, ss.Height/2 + 20),
 			SColor(255, 255, 255, 255), true, true);
+
+		wchar_t moneyStr[64];
+		swprintf(moneyStr, 64, L"Earned: $%d", m_money);
+		font->draw(moneyStr, rect<s32>(0, ss.Height/2 + 20, ss.Width, ss.Height/2 + 60),
+			SColor(255, 255, 215, 0), true, true);
 	}
 
 	if (m_exitBtnTex)

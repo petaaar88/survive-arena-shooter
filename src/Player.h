@@ -19,6 +19,7 @@ public:
 	void update(f32 deltaTime) override;
 	void handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw);
 
+	void reset();
 	void takeDamage(s32 amount);
 	void addAmmo(s32 amount);
 

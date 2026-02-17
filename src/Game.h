@@ -32,6 +32,7 @@ private:
 	void setupGates(IMeshSceneNode* map);
 	void setupHUD();
 
+	void resetGame();
 	void updateMenu();
 	void updatePlaying(f32 deltaTime);
 	void updateTesting(f32 deltaTime);
@@ -83,6 +84,8 @@ private:
 	IGUIStaticText*    m_waveText;
 	IGUIStaticText*    m_killText;
 	s32                m_killCount;
+	IGUIStaticText*    m_moneyText;
+	s32                m_money;
 
 	// Powerup HUD
 	IGUIImage*         m_powerupIcons[3];

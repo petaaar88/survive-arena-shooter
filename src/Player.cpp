@@ -95,6 +95,52 @@ Player::~Player()
 		m_soundEngine->drop();
 }
 
+void Player::reset()
+{
+	m_health = PLAYER_HEALTH_START;
+	m_ammo = PLAYER_AMMO_START;
+	m_isDead = false;
+	m_isMoving = false;
+	m_isShooting = false;
+	m_isInPain = false;
+	m_shootCooldown = 0.0f;
+	m_attackAnimTimer = 0.0f;
+	m_painTimer = 0.0f;
+	m_rotationY = 0.0f;
+	m_lastHitObject = nullptr;
+	m_debugRay.active = false;
+	m_speedBoost = false;
+	m_damageBoost = false;
+	m_godMode = false;
+	m_speedBoostTimer = 0.0f;
+	m_damageBoostTimer = 0.0f;
+	m_godModeTimer = 0.0f;
+	stopRunSound();
+
+	// Reset position via physics body
+	if (m_body)
+	{
+		btTransform t;
+		t.setIdentity();
+		t.setOrigin(btVector3(0, 0, 0));
+		m_body->setWorldTransform(t);
+		m_body->getMotionState()->setWorldTransform(t);
+		m_body->setLinearVelocity(btVector3(0, 0, 0));
+	}
+
+	// Reset visual
+	if (m_playerNode)
+	{
+		m_playerNode->setPosition(vector3df(0, 0, 0));
+		m_playerNode->setMD2Animation(EMAT_STAND);
+	}
+	if (m_weaponNode)
+	{
+		m_weaponNode->setVisible(true);
+		m_weaponNode->setMD2Animation(EMAT_STAND);
+	}
+}
+
 void Player::update(f32 deltaTime)
 {
 	// Sync physics → node + apply rotation
