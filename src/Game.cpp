@@ -64,6 +64,11 @@ Game::Game()
 	, m_exitBtnTex(nullptr)
 	, m_resumeBtnTex(nullptr)
 	, m_backBtnTex(nullptr)
+	, m_playBtnHoverTex(nullptr)
+	, m_customizeBtnHoverTex(nullptr)
+	, m_exitBtnHoverTex(nullptr)
+	, m_resumeBtnHoverTex(nullptr)
+	, m_backBtnHoverTex(nullptr)
 	, m_totalMoney(0)
 	, m_healthUpgradeLevel(0)
 	, m_damageUpgradeLevel(0)
@@ -104,6 +109,7 @@ Game::~Game()
 	}
 	if (m_soundEngine)
 	{
+		m_soundEngine->stopAllSounds();
 		m_soundEngine->drop();
 		m_soundEngine = nullptr;
 	}
@@ -208,6 +214,13 @@ void Game::init()
 	m_resumeBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Resume/Resume1.png");
 	m_backBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Back/Back1.png");
 
+	// Hover textures
+	m_playBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Start/Start3.png");
+	m_customizeBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Customize/Customize3.png");
+	m_exitBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Quit/Quit3.png");
+	m_resumeBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Resume/Resume3.png");
+	m_backBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Back/Back3.png");
+
 	// Create skin preview models (hidden, used in customize screen)
 	{
 		static const char* skinTexPaths[3] = {
@@ -253,12 +266,12 @@ void Game::init()
 	// Calculate button rects (centered on screen)
 	{
 		dimension2d<u32> ss = m_driver->getScreenSize();
-		s32 btnW = 200, btnH = 60, spacing = 20;
+		s32 btnW = 300, btnH = 80, spacing = 25;
 		s32 cx = ss.Width / 2;
 
 		// Logo at top area
-		s32 logoW = 400, logoH = 150;
-		s32 logoY = 120;
+		s32 logoW = 500, logoH = 190;
+		s32 logoY = 60;
 		m_logoRect = rect<s32>(cx - logoW/2, logoY, cx + logoW/2, logoY + logoH);
 
 		// Play and Customize grouped together below logo
@@ -1418,6 +1431,7 @@ void Game::updateGameOver(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
+		playClickSound();
 		m_totalMoney += m_money;
 		resetGame();
 		m_state = GameState::MENU;
@@ -1430,6 +1444,7 @@ void Game::updateWin(f32 deltaTime)
 {
 	if (m_input.consumeKeyPress(KEY_ESCAPE) || (m_input.consumeLeftClick() && isClickInRect(m_endScreenExitBtnRect)))
 	{
+		playClickSound();
 		m_totalMoney += m_money;
 		resetGame();
 		m_state = GameState::MENU;
@@ -1515,6 +1530,29 @@ bool Game::isClickInRect(const rect<s32>& r) const
 	return r.isPointInside(cursor);
 }
 
+void Game::playClickSound()
+{
+	if (m_soundEngine)
+		m_soundEngine->play2D("assets/audio/button/click.mp3");
+}
+
+bool Game::isCursorInRect(const rect<s32>& r) const
+{
+	position2d<s32> cursor = m_device->getCursorControl()->getPosition();
+	return r.isPointInside(cursor);
+}
+
+void Game::drawButton(ITexture* tex, ITexture* hoverTex, const rect<s32>& btnRect)
+{
+	ITexture* t = (hoverTex && isCursorInRect(btnRect)) ? hoverTex : tex;
+	if (t)
+	{
+		dimension2d<u32> ts = t->getOriginalSize();
+		m_driver->draw2DImage(t, btnRect,
+			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
+	}
+}
+
 void Game::setHUDVisible(bool visible)
 {
 	if (m_ammoText) m_ammoText->setVisible(visible);
@@ -1592,6 +1630,7 @@ void Game::updateMenu()
 	{
 		if (isClickInRect(m_playBtnRect))
 		{
+			playClickSound();
 			// Show loading screen for 2 seconds
 			{
 				dimension2d<u32> ss = m_driver->getScreenSize();
@@ -1629,6 +1668,7 @@ void Game::updateMenu()
 		}
 		else if (isClickInRect(m_customizeBtnRect))
 		{
+			playClickSound();
 			m_state = GameState::CUSTOMIZE;
 			m_skinPreviewRotation = 0.0f;
 			m_previewedSkin = m_selectedSkin;
@@ -1669,12 +1709,14 @@ void Game::updatePaused()
 	{
 		if (isClickInRect(m_resumeBtnRect))
 		{
+			playClickSound();
 			m_state = GameState::PLAYING;
 			m_device->getCursorControl()->setVisible(false);
 			m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 		}
 		else if (isClickInRect(m_pauseExitBtnRect))
 		{
+			playClickSound();
 			m_totalMoney += m_money;
 			resetGame();
 			m_state = GameState::MENU;
@@ -1742,6 +1784,7 @@ void Game::updateCustomize()
 		// Back button
 		if (isClickInRect(m_custBackBtnRect))
 		{
+			playClickSound();
 			hidePreviewsAndGoMenu();
 			return;
 		}
@@ -1752,6 +1795,7 @@ void Game::updateCustomize()
 			s32 cost = getUpgradeCost(m_healthUpgradeLevel);
 			if (m_totalMoney >= cost)
 			{
+				playClickSound();
 				m_totalMoney -= cost;
 				m_healthUpgradeLevel++;
 			}
@@ -1763,6 +1807,7 @@ void Game::updateCustomize()
 			s32 cost = getUpgradeCost(m_damageUpgradeLevel);
 			if (m_totalMoney >= cost)
 			{
+				playClickSound();
 				m_totalMoney -= cost;
 				m_damageUpgradeLevel++;
 			}
@@ -1774,6 +1819,7 @@ void Game::updateCustomize()
 			s32 cost = getUpgradeCost(m_powerupTimeLevel);
 			if (m_totalMoney >= cost)
 			{
+				playClickSound();
 				m_totalMoney -= cost;
 				m_powerupTimeLevel++;
 			}
@@ -1784,6 +1830,7 @@ void Game::updateCustomize()
 		{
 			if (isClickInRect(m_custSkinPreviewBtnRects[i]) && i != m_previewedSkin)
 			{
+				playClickSound();
 				// Hide old preview, show new one
 				if (m_skinPreviewPivot[m_previewedSkin])
 					m_skinPreviewPivot[m_previewedSkin]->setVisible(false);
@@ -1813,11 +1860,13 @@ void Game::updateCustomize()
 			{
 				if (m_skinUnlocked[i])
 				{
+					playClickSound();
 					m_selectedSkin = i;
 					m_player->setSkin(m_driver, skinPaths[i]);
 				}
 				else if (m_totalMoney >= skinPrices[i])
 				{
+					playClickSound();
 					m_totalMoney -= skinPrices[i];
 					m_skinUnlocked[i] = true;
 					m_selectedSkin = i;
@@ -1850,24 +1899,9 @@ void Game::drawMenu()
 	}
 
 	// Buttons
-	if (m_playBtnTex)
-	{
-		dimension2d<u32> ts = m_playBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_playBtnTex, m_playBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
-	if (m_customizeBtnTex)
-	{
-		dimension2d<u32> ts = m_customizeBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_customizeBtnTex, m_customizeBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
-	if (m_exitBtnTex)
-	{
-		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_exitBtnTex, m_exitBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_playBtnTex, m_playBtnHoverTex, m_playBtnRect);
+	drawButton(m_customizeBtnTex, m_customizeBtnHoverTex, m_customizeBtnRect);
+	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_exitBtnRect);
 }
 
 void Game::drawPause()
@@ -1879,20 +1913,10 @@ void Game::drawPause()
 		rect<s32>(0, 0, ss.Width, ss.Height));
 
 	// Resume button
-	if (m_resumeBtnTex)
-	{
-		dimension2d<u32> ts = m_resumeBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_resumeBtnTex, m_resumeBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_resumeBtnTex, m_resumeBtnHoverTex, m_resumeBtnRect);
 
 	// Exit button
-	if (m_exitBtnTex)
-	{
-		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_exitBtnTex, m_pauseExitBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_pauseExitBtnRect);
 }
 
 s32 Game::getUpgradeCost(s32 level) const
@@ -2085,12 +2109,7 @@ void Game::drawCustomize()
 	s32 backY = ss.Height - backH - 10;
 	m_custBackBtnRect = rect<s32>(cx - backW/2, backY, cx + backW/2, backY + backH);
 
-	if (m_backBtnTex)
-	{
-		dimension2d<u32> ts = m_backBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_backBtnTex, m_custBackBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_backBtnTex, m_backBtnHoverTex, m_custBackBtnRect);
 }
 
 void Game::drawGameOver()
@@ -2118,12 +2137,7 @@ void Game::drawGameOver()
 			SColor(255, 255, 215, 0), true, true);
 	}
 
-	if (m_exitBtnTex)
-	{
-		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_exitBtnTex, m_endScreenExitBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_endScreenExitBtnRect);
 }
 
 void Game::drawWin()
@@ -2151,10 +2165,5 @@ void Game::drawWin()
 			SColor(255, 255, 215, 0), true, true);
 	}
 
-	if (m_exitBtnTex)
-	{
-		dimension2d<u32> ts = m_exitBtnTex->getOriginalSize();
-		m_driver->draw2DImage(m_exitBtnTex, m_endScreenExitBtnRect,
-			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
-	}
+	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_endScreenExitBtnRect);
 }

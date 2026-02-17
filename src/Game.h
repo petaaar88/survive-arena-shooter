@@ -53,6 +53,9 @@ private:
 	void drawWin();
 
 	bool isClickInRect(const rect<s32>& r) const;
+	bool isCursorInRect(const rect<s32>& r) const;
+	void playClickSound();
+	void drawButton(ITexture* tex, ITexture* hoverTex, const rect<s32>& btnRect);
 
 	// Irrlicht core
 	IrrlichtDevice*    m_device;
@@ -127,6 +130,13 @@ private:
 	ITexture* m_exitBtnTex;
 	ITexture* m_resumeBtnTex;
 	ITexture* m_backBtnTex;
+
+	// Hover textures
+	ITexture* m_playBtnHoverTex;
+	ITexture* m_customizeBtnHoverTex;
+	ITexture* m_exitBtnHoverTex;
+	ITexture* m_resumeBtnHoverTex;
+	ITexture* m_backBtnHoverTex;
 
 	// Logo + Button rects (screen space)
 	rect<s32> m_logoRect;

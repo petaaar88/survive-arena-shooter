@@ -129,7 +129,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x86\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)libs\irrlicht-1.8.5\lib\Win64-visualStudio\;$(SolutionDir)libs\irrKlang\lib\x64\;%(AdditionalLibraryDirectories);$(SolutionDir)libs\bullet3\lib\$(Configuration)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Irrlicht.lib;irrKlang.lib;BulletDynamics.lib;BulletCollision.lib;LinearMath.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
