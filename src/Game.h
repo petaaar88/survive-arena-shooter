@@ -103,6 +103,9 @@ private:
 	f32 m_spawnTimer;
 	s32 m_currentWave;
 
+	// Powerup per-wave spawning (one per wave, 3 total)
+	bool m_powerupSpawnedWave[3]; // index 0=wave1, 1=wave2, 2=wave3
+
 	// Global attack cooldown (only one enemy attacks at a time)
 	f32 m_attackCooldown = 0.0f;
 

@@ -24,6 +24,9 @@ static const f32 PICKUP_SPAWN_MIN = 8.0f;
 static const f32 PICKUP_SPAWN_MAX = 20.0f;
 static const s32 PICKUP_AMMO_AMOUNT = 7;
 
+// Powerup in-world lifetime (seconds before it despawns)
+static const f32 POWERUP_WORLD_LIFETIME = 15.0f;
+
 Game::Game()
 	: m_device(nullptr)
 	, m_driver(nullptr)
@@ -62,6 +65,7 @@ Game::Game()
 	, m_gameTimer(GAME_DURATION)
 	, m_spawnTimer(0.0f)
 	, m_currentWave(1)
+	, m_powerupSpawnedWave{false, false, false}
 {
 	m_soundEngine = irrklang::createIrrKlangDevice();
 	init();
@@ -161,13 +165,16 @@ void Game::init()
 	}
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
-	// Powerup spawn positions (testing scene)
-	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
-		vector3df(-200, -25, 0), PowerupType::SPEED_BOOST));
-	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
-		vector3df(200, -25, 0), PowerupType::DAMAGE_BOOST));
-	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
-		vector3df(0, -25, 200), PowerupType::GOD_MODE));
+	// Powerup spawn positions (testing scene only)
+	if (m_state == GameState::TESTING)
+	{
+		m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+			vector3df(-200, -25, 0), PowerupType::SPEED_BOOST));
+		m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+			vector3df(200, -25, 0), PowerupType::DAMAGE_BOOST));
+		m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+			vector3df(0, -25, 200), PowerupType::GOD_MODE));
+	}
 
 	// Load menu textures
 	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
@@ -812,6 +819,33 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
+	// Spawn one powerup per wave (random type, random pickup position)
+	{
+		int waveIdx = m_currentWave - 1; // 0, 1, or 2
+		if (waveIdx >= 0 && waveIdx < 3 && !m_powerupSpawnedWave[waveIdx])
+		{
+			m_powerupSpawnedWave[waveIdx] = true;
+
+			// Pick random powerup type
+			int typeRoll = rand() % 3;
+			PowerupType ptype = static_cast<PowerupType>(typeRoll);
+
+			// Pick a random position from pickup positions
+			vector3df spawnPositions[] = {
+				vector3df(-400, -25, -300),
+				vector3df( 400, -25,  300),
+				vector3df(-400, -25,  300),
+				vector3df( 400, -25, -300),
+				vector3df(   0, -25,    0),
+				vector3df( 500, -25,    0),
+			};
+			int posIdx = rand() % 6;
+			Powerup* pw = new Powerup(m_smgr, m_driver, m_physics, spawnPositions[posIdx], ptype);
+			pw->setLifetime(POWERUP_WORLD_LIFETIME);
+			m_powerups.push_back(pw);
+		}
+	}
+
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
@@ -905,13 +939,17 @@ void Game::updatePlaying(f32 deltaTime)
 	btCollisionObject* hitObject = m_player->getLastHitObject();
 	if (hitObject)
 	{
+		s32 shotDamage = 25;
+		if (m_player->hasGodMode()) shotDamage = 9999;
+		else if (m_player->hasDamageBoost()) shotDamage = 100;
+
 		for (Enemy* enemy : m_enemies)
 		{
 			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
 			if (hitGameObject == enemy)
 			{
 				bool wasDead = enemy->isDead();
-				enemy->takeDamage(25);
+				enemy->takeDamage(shotDamage);
 				if (!wasDead && enemy->isDead())
 					m_killCount++;
 				break;
@@ -923,7 +961,7 @@ void Game::updatePlaying(f32 deltaTime)
 			if (hitGameObject == fogEnemy)
 			{
 				bool wasDead = fogEnemy->isDead();
-				fogEnemy->takeDamage(25);
+				fogEnemy->takeDamage(shotDamage);
 				if (!wasDead && fogEnemy->isDead())
 					m_killCount++;
 				break;
@@ -981,6 +1019,36 @@ void Game::updatePlaying(f32 deltaTime)
 			m_player->addAmmo(PICKUP_AMMO_AMOUNT);
 			p->collect();
 		}
+	}
+
+	// 9. Update powerups + check overlap + cleanup expired
+	for (Powerup* pw : m_powerups)
+	{
+		pw->update(deltaTime);
+		if (!pw->isCollected() && !pw->isExpired()
+			&& pw->getTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(pw->getTrigger(), m_player->getBody()))
+		{
+			f32 dur = pw->getDuration();
+			switch (pw->getType())
+			{
+			case PowerupType::SPEED_BOOST:  m_player->activateSpeedBoost(dur); break;
+			case PowerupType::DAMAGE_BOOST: m_player->activateDamageBoost(dur); break;
+			case PowerupType::GOD_MODE:     m_player->activateGodMode(dur); break;
+			}
+			pw->collect();
+		}
+	}
+	// Remove collected or expired powerups
+	for (auto it = m_powerups.begin(); it != m_powerups.end(); )
+	{
+		if ((*it)->isCollected() || (*it)->isExpired())
+		{
+			delete *it;
+			it = m_powerups.erase(it);
+		}
+		else
+			++it;
 	}
 
 	// Remove dead enemies after death animation finishes
@@ -1392,6 +1460,10 @@ void Game::updateMenu()
 					m_driver->endScene();
 				}
 			}
+
+			// Clean up testing powerups before starting game
+			for (Powerup* pw : m_powerups) delete pw;
+			m_powerups.clear();
 
 			m_state = GameState::PLAYING;
 			m_device->getCursorControl()->setVisible(false);

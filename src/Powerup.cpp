@@ -24,6 +24,8 @@ Powerup::Powerup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 	, m_trigger(nullptr)
 	, m_triggerShape(nullptr)
 	, m_collected(false)
+	, m_expired(false)
+	, m_lifetime(0.0f)
 	, m_spawnPos(position)
 {
 	// Visual: flat plane with texture on both sides
@@ -80,8 +82,22 @@ Powerup::~Powerup()
 
 void Powerup::update(f32 deltaTime)
 {
-	if (m_collected)
+	if (m_collected || m_expired)
 		return;
+
+	// Tick lifetime if set
+	if (m_lifetime > 0.0f)
+	{
+		m_lifetime -= deltaTime;
+		if (m_lifetime <= 0.0f)
+		{
+			m_lifetime = 0.0f;
+			m_expired = true;
+			if (m_node)
+				m_node->setVisible(false);
+			return;
+		}
+	}
 
 	// Rotate on Y axis
 	if (m_node)
@@ -90,6 +106,11 @@ void Powerup::update(f32 deltaTime)
 		rot.Y += POWERUP_ROTATE_SPEED * deltaTime;
 		m_node->setRotation(rot);
 	}
+}
+
+void Powerup::setLifetime(f32 seconds)
+{
+	m_lifetime = seconds;
 }
 
 void Powerup::collect()

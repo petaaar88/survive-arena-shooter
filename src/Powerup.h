@@ -26,10 +26,14 @@ public:
 
 	void collect();
 	bool isCollected() const { return m_collected; }
+	bool isExpired() const { return m_expired; }
 	PowerupType getType() const { return m_type; }
 	btGhostObject* getTrigger() const { return m_trigger; }
 
 	f32 getDuration() const;
+
+	void setLifetime(f32 seconds);
+	f32 getLifetimeRemaining() const { return m_lifetime; }
 
 private:
 	Physics* m_physics;
@@ -39,5 +43,7 @@ private:
 	btSphereShape* m_triggerShape;
 
 	bool m_collected;
+	bool m_expired;
+	f32 m_lifetime;
 	vector3df m_spawnPos;
 };
