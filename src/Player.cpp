@@ -38,6 +38,12 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	, m_health(PLAYER_HEALTH_START)
 	, m_lastHitObject(nullptr)
 	, m_debugRay{ vector3df(0,0,0), vector3df(0,0,0), false, 0.0f }
+	, m_speedBoost(false)
+	, m_damageBoost(false)
+	, m_godMode(false)
+	, m_speedBoostTimer(0.0f)
+	, m_damageBoostTimer(0.0f)
+	, m_godModeTimer(0.0f)
 	, m_soundEngine(nullptr)
 	, m_runSound(nullptr)
 {
@@ -96,6 +102,23 @@ void Player::update(f32 deltaTime)
 
 	if (m_playerNode)
 		m_playerNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
+
+	// Tick powerup timers
+	if (m_speedBoost)
+	{
+		m_speedBoostTimer -= deltaTime;
+		if (m_speedBoostTimer <= 0.0f) { m_speedBoost = false; m_speedBoostTimer = 0.0f; }
+	}
+	if (m_damageBoost)
+	{
+		m_damageBoostTimer -= deltaTime;
+		if (m_damageBoostTimer <= 0.0f) { m_damageBoost = false; m_damageBoostTimer = 0.0f; }
+	}
+	if (m_godMode)
+	{
+		m_godModeTimer -= deltaTime;
+		if (m_godModeTimer <= 0.0f) { m_godMode = false; m_godModeTimer = 0.0f; }
+	}
 }
 
 void Player::handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw)
@@ -140,6 +163,9 @@ void Player::handleInput(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 void Player::takeDamage(s32 amount)
 {
 	if (m_isDead)
+		return;
+
+	if (m_godMode)
 		return;
 
 	m_health -= amount;
@@ -235,7 +261,8 @@ void Player::handleMovement(f32 deltaTime, InputHandler& input, f32 cameraYaw)
 		moveDir = vector3df(0, 0, 0);
 		moving = false;
 	}
-	f32 speed = input.isRightMouseDown() ? 0 : PLAYER_SPEED; // ne može se kretati dok je desni klik držan (gledanje)
+	f32 speed = input.isRightMouseDown() ? 0 : PLAYER_SPEED;
+	if (m_speedBoost) speed *= 2.0f;
 
 	if (m_body)
 	{
@@ -351,4 +378,22 @@ void Player::stopRunSound()
 		m_runSound->drop();
 		m_runSound = nullptr;
 	}
+}
+
+void Player::activateSpeedBoost(f32 duration)
+{
+	m_speedBoost = true;
+	m_speedBoostTimer = duration;
+}
+
+void Player::activateDamageBoost(f32 duration)
+{
+	m_damageBoost = true;
+	m_damageBoostTimer = duration;
+}
+
+void Player::activateGodMode(f32 duration)
+{
+	m_godMode = true;
+	m_godModeTimer = duration;
 }

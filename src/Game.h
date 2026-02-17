@@ -8,6 +8,7 @@
 #include "Enemy.h"
 #include "FogEnemy.h"
 #include "Pickup.h"
+#include "Powerup.h"
 #include "DebugDrawer.h"
 
 using namespace irr;
@@ -70,6 +71,7 @@ private:
 	std::vector<Enemy*> m_enemies;
 	std::vector<FogEnemy*> m_fogEnemies;
 	std::vector<Pickup*> m_pickups;
+	std::vector<Powerup*> m_powerups;
 	f32                m_pickupSpawnTimer;
 	ICameraSceneNode*  m_camera;
 	ISceneNode*        m_ground;
@@ -81,6 +83,11 @@ private:
 	IGUIStaticText*    m_waveText;
 	IGUIStaticText*    m_killText;
 	s32                m_killCount;
+
+	// Powerup HUD
+	IGUIImage*         m_powerupIcons[3];
+	IGUIStaticText*    m_powerupTimers[3];
+	ITexture*          m_powerupTextures[3];
 
 	// State
 	GameState          m_state;

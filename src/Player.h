@@ -22,6 +22,18 @@ public:
 	void takeDamage(s32 amount);
 	void addAmmo(s32 amount);
 
+	// Powerup activation
+	void activateSpeedBoost(f32 duration);
+	void activateDamageBoost(f32 duration);
+	void activateGodMode(f32 duration);
+
+	bool hasSpeedBoost() const { return m_speedBoost; }
+	bool hasDamageBoost() const { return m_damageBoost; }
+	bool hasGodMode() const { return m_godMode; }
+	f32 getSpeedBoostTimer() const { return m_speedBoostTimer; }
+	f32 getDamageBoostTimer() const { return m_damageBoostTimer; }
+	f32 getGodModeTimer() const { return m_godModeTimer; }
+
 	f32 getRotationY() const { return m_rotationY; }
 	bool isShooting() const { return m_isShooting; }
 	bool isDead() const { return m_isDead; }
@@ -57,6 +69,14 @@ private:
 	s32 m_health;
 	btCollisionObject* m_lastHitObject;
 	DebugRay m_debugRay;
+
+	// Powerup state
+	bool m_speedBoost;
+	bool m_damageBoost;
+	bool m_godMode;
+	f32 m_speedBoostTimer;
+	f32 m_damageBoostTimer;
+	f32 m_godModeTimer;
 
 	// Audio
 	irrklang::ISoundEngine* m_soundEngine;

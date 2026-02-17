@@ -43,6 +43,9 @@ Game::Game()
 	, m_waveText(nullptr)
 	, m_killText(nullptr)
 	, m_killCount(0)
+	, m_powerupIcons{nullptr, nullptr, nullptr}
+	, m_powerupTimers{nullptr, nullptr, nullptr}
+	, m_powerupTextures{nullptr, nullptr, nullptr}
 	, m_state(GameState::TESTING)
 	, m_menuBgTex(nullptr)
 	, m_logoTex(nullptr)
@@ -80,6 +83,9 @@ Game::~Game()
 
 	for (Pickup* p : m_pickups) delete p;
 	m_pickups.clear();
+
+	for (Powerup* pw : m_powerups) delete pw;
+	m_powerups.clear();
 
 	for (Enemy* e : m_enemies) delete e;
 	m_enemies.clear();
@@ -154,6 +160,14 @@ void Game::init()
 		m_pickups.push_back(p);
 	}
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
+
+	// Powerup spawn positions (testing scene)
+	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+		vector3df(-200, -25, 0), PowerupType::SPEED_BOOST));
+	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+		vector3df(200, -25, 0), PowerupType::DAMAGE_BOOST));
+	m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
+		vector3df(0, -25, 200), PowerupType::GOD_MODE));
 
 	// Load menu textures
 	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
@@ -542,7 +556,43 @@ void Game::setupHUD()
 		crosshair->setScaleImage(true);
 		crosshair->setMaxSize(dimension2du(crosshairSize, crosshairSize));
 	}
-	
+
+	// Powerup HUD icons + timers (left side, below HP)
+	{
+		s32 baseX = m_driver->getScreenSize().Width / 22;
+		s32 baseY = m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 10) - 50;
+		s32 iconSize = 32;
+		s32 spacing = -40;
+
+		const char* texPaths[3] = {
+			"assets/textures/powerups/speed_boost.png",
+			"assets/textures/powerups/damage_boost.png",
+			"assets/textures/powerups/GOD_mode.png"
+		};
+
+		for (int i = 0; i < 3; i++)
+		{
+			m_powerupTextures[i] = m_driver->getTexture(texPaths[i]);
+			s32 y = baseY + i * spacing;
+
+			m_powerupIcons[i] = nullptr;
+			if (m_powerupTextures[i])
+			{
+				m_powerupIcons[i] = m_gui->addImage(m_powerupTextures[i], position2d<s32>(baseX, y));
+				m_powerupIcons[i]->setScaleImage(true);
+				m_powerupIcons[i]->setMaxSize(dimension2du(iconSize, iconSize));
+				m_powerupIcons[i]->setVisible(false);
+			}
+
+			m_powerupTimers[i] = m_gui->addStaticText(
+				L"",
+				rect<s32>(baseX + iconSize + 8, y + 4, baseX + iconSize + 108, y + 34),
+				false, false, 0, -1, false
+			);
+			m_powerupTimers[i]->setOverrideColor(SColor(255, 255, 255, 255));
+			m_powerupTimers[i]->setVisible(false);
+		}
+	}
 }
 
 void Game::run()
@@ -1074,13 +1124,17 @@ void Game::updateTesting(f32 deltaTime)
 	btCollisionObject* hitObject = m_player->getLastHitObject();
 	if (hitObject)
 	{
+		s32 shotDamage = 25;
+		if (m_player->hasGodMode()) shotDamage = 9999;
+		else if (m_player->hasDamageBoost()) shotDamage = 100;
+
 		for (Enemy* enemy : m_enemies)
 		{
 			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
 			if (hitGameObject == enemy)
 			{
 				bool wasDead = enemy->isDead();
-				enemy->takeDamage(25);
+				enemy->takeDamage(shotDamage);
 				if (!wasDead && enemy->isDead())
 					m_killCount++;
 				break;
@@ -1092,7 +1146,7 @@ void Game::updateTesting(f32 deltaTime)
 			if (hitGameObject == fogEnemy)
 			{
 				bool wasDead = fogEnemy->isDead();
-				fogEnemy->takeDamage(25);
+				fogEnemy->takeDamage(shotDamage);
 				if (!wasDead && fogEnemy->isDead())
 					m_killCount++;
 				break;
@@ -1163,6 +1217,25 @@ void Game::updateTesting(f32 deltaTime)
 		{
 			m_player->addAmmo(PICKUP_AMMO_AMOUNT);
 			p->collect();
+		}
+	}
+
+	// Update and check powerup overlap
+	for (Powerup* pw : m_powerups)
+	{
+		pw->update(deltaTime);
+		if (!pw->isCollected()
+			&& pw->getTrigger() && m_player->getBody()
+			&& m_physics->isGhostOverlapping(pw->getTrigger(), m_player->getBody()))
+		{
+			f32 dur = pw->getDuration();
+			switch (pw->getType())
+			{
+			case PowerupType::SPEED_BOOST:  m_player->activateSpeedBoost(dur); break;
+			case PowerupType::DAMAGE_BOOST: m_player->activateDamageBoost(dur); break;
+			case PowerupType::GOD_MODE:     m_player->activateGodMode(dur); break;
+			}
+			pw->collect();
 		}
 	}
 
@@ -1237,6 +1310,25 @@ void Game::updateHUD()
 	wchar_t killStr[32];
 	swprintf(killStr, 32, L"Kills: %d", m_killCount);
 	m_killText->setText(killStr);
+
+	// Powerup HUD indicators
+	bool active[3] = { m_player->hasSpeedBoost(), m_player->hasDamageBoost(), m_player->hasGodMode() };
+	f32 timers[3] = { m_player->getSpeedBoostTimer(), m_player->getDamageBoostTimer(), m_player->getGodModeTimer() };
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (m_powerupIcons[i]) m_powerupIcons[i]->setVisible(active[i]);
+		if (m_powerupTimers[i])
+		{
+			m_powerupTimers[i]->setVisible(active[i]);
+			if (active[i])
+			{
+				wchar_t buf[16];
+				swprintf(buf, 16, L"%.1fs", timers[i]);
+				m_powerupTimers[i]->setText(buf);
+			}
+		}
+	}
 }
 
 bool Game::isClickInRect(const rect<s32>& r) const
@@ -1253,6 +1345,11 @@ void Game::setHUDVisible(bool visible)
 	if (m_waveText) m_waveText->setVisible(visible);
 	if (m_killText) m_killText->setVisible(visible);
 	if (crosshair) crosshair->setVisible(false); // crosshair managed separately
+	for (int i = 0; i < 3; i++)
+	{
+		if (m_powerupIcons[i]) m_powerupIcons[i]->setVisible(false);
+		if (m_powerupTimers[i]) m_powerupTimers[i]->setVisible(false);
+	}
 }
 
 void Game::updateMenu()
