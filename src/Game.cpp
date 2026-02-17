@@ -1223,6 +1223,12 @@ void Game::updateHUD()
 	wchar_t waveStr[16];
 	swprintf(waveStr, 16, L"Wave %d", m_currentWave);
 	m_waveText->setText(waveStr);
+	if (m_currentWave == 1)
+		m_waveText->setOverrideColor(SColor(255, 0, 255, 0));
+	else if (m_currentWave == 2)
+		m_waveText->setOverrideColor(SColor(255, 255, 255, 0));
+	else
+		m_waveText->setOverrideColor(SColor(255, 255, 0, 0));
 
 	// Kill count
 	wchar_t killStr[32];
