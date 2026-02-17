@@ -9,7 +9,7 @@ using namespace core;
 using namespace scene;
 using namespace video;
 
-enum class FogEnemyState { SPAWNING, FALLBACK, THROWING, IDLE, DEAD };
+enum class FogEnemyState { SPAWNING, FALLBACK, REPOSITION, THROWING, IDLE, DEAD };
 
 class FogEnemy : public GameObject
 {
@@ -63,10 +63,20 @@ private:
 	ISceneNode* m_grenadeNode;
 	vector3df m_grenadeVelocity;
 
+	// Stuck detection & obstacle avoidance
+	vector3df m_lastCheckedPos;
+	f32       m_stuckTimer;
+	bool      m_isStrafing;
+	f32       m_strafeTimer;
+	f32       m_strafeDirection; // +1 = right, -1 = left
+
 	// Fog (Irrlicht EFT_FOG_LINEAR)
 	bool m_fogActive;
 	f32 m_fogTimer;
 	f32 m_fogStartDist;
 	f32 m_fogEndDist;
 	bool m_fogFinished;
+
+	int m_currentRepositionIndex;
+	f32 m_movementSpeed;
 };

@@ -3,6 +3,9 @@
 #include <iostream>
 #include <vector>
 
+static const f32 MOVEMENT_SPEED = 160.0f;
+static const f32 POSITION_THRASHOLD = 25.0f;
+
 static const f32 FOG_ENEMY_SPEED = 160.0f;
 static const s32 FOG_ENEMY_HEALTH = 60;
 static const f32 FOG_ENEMY_DEATH_DURATION = 0.8f;
@@ -25,6 +28,17 @@ static const f32 FOG_END_INITIAL = 300.0f;
 static const f32 FOG_START_FINAL = 9999.0f;
 static const f32 FOG_END_FINAL = 10000.0f;
 static const SColor FOG_COLOR(255, 180, 180, 180);
+
+static const f32 STUCK_TIME_THRESHOLD = 1.0f;
+static const f32 STUCK_DISTANCE_THRESHOLD = 5.0f;
+static const f32 STRAFE_DURATION = 0.2f;
+
+static const std::vector<vector3df> recoveringPositions = {
+	{ 590.0f, 0, -367.0f },
+	{ -340.0f, 0, 987.0f },
+	{ -200.5f, 0,30.0f },
+	{ 400.0f, 0,-120.0f }
+};
 
 
 FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
@@ -54,6 +68,12 @@ FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 	, m_fogTimer(0.0f)
 	, m_fogStartDist(FOG_START_FINAL)
 	, m_fogEndDist(FOG_END_FINAL)
+	, m_movementSpeed(MOVEMENT_SPEED)
+	, m_lastCheckedPos(spawnPos)
+	, m_stuckTimer(0.0f)
+	, m_isStrafing(false)
+	, m_strafeTimer(0.0f)
+	, m_strafeDirection(1.0f)
 {
 	IAnimatedMesh* mesh = smgr->getMesh("assets/models/fog_enemy/tris.md2");
 	if (mesh)
@@ -140,6 +160,12 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		if (m_painTimer <= 0)
 		{
 			m_isInPain = false;
+			if (m_state == FogEnemyState::IDLE && m_animNode) 
+				m_animNode->setMD2Animation(EMAT_STAND);
+			else if(m_state == FogEnemyState::REPOSITION && m_animNode)
+				m_animNode->setMD2Animation(EMAT_RUN);
+
+			m_animNode->setLoopMode(true);
 		}
 		else
 		{
@@ -201,7 +227,17 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		m_stateTimer -= deltaTime;
 		if (m_stateTimer <= 0)
 		{
-			m_state = FogEnemyState::IDLE;
+			if (m_animNode)
+			{
+				m_animNode->setMD2Animation(EMAT_RUN);
+				m_animNode->setLoopMode(true);
+			}
+
+
+
+			//TODO: make it random
+			m_currentRepositionIndex = 1;
+			m_state = FogEnemyState::REPOSITION;
 			
 		}
 		break;
@@ -209,13 +245,83 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 	case FogEnemyState::IDLE:
 	{
-		if (m_animNode)
-		{
-			m_animNode->setMD2Animation(EMAT_STAND);
-			m_animNode->setLoopMode(true);
-		}
+		
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+		break;
+	}
+
+	case FogEnemyState::REPOSITION:
+	{
+
+		vector3df pos = getPosition();
+		f32 distToPosition = pos.getDistanceFrom(recoveringPositions[m_currentRepositionIndex]);
+
+		vector3df dir = recoveringPositions[m_currentRepositionIndex] - pos;
+		dir.Y = 0;
+		if (dir.getLength() > 0)
+			dir.normalize();
+
+		vector3df moveDir = dir;
+
+		if (m_isStrafing)
+		{
+			// Move perpendicular to player direction
+			moveDir = vector3df(-dir.Z, 0, dir.X) * m_strafeDirection;
+			m_strafeTimer -= deltaTime;
+			if (m_strafeTimer <= 0)
+			{
+				m_isStrafing = false;
+				m_stuckTimer = 0.0f;
+				m_lastCheckedPos = pos;
+			}
+		}
+		else
+		{
+			// Stuck detection: check if enemy barely moved
+			f32 distMoved = pos.getDistanceFrom(m_lastCheckedPos);
+			if (distMoved < STUCK_DISTANCE_THRESHOLD)
+			{
+				m_stuckTimer += deltaTime;
+				if (m_stuckTimer >= STUCK_TIME_THRESHOLD)
+				{
+					m_isStrafing = true;
+					m_strafeTimer = STRAFE_DURATION;
+					// Alternate direction: pick based on a simple heuristic
+					m_strafeDirection = (fmodf(pos.X + pos.Z, 2.0f) > 1.0f) ? 1.0f : -1.0f;
+				}
+			}
+			else
+			{
+				m_stuckTimer = 0.0f;
+				m_lastCheckedPos = pos;
+			}
+		}
+
+		if (m_body)
+		{
+			f32 speed = MOVEMENT_SPEED;
+			btVector3 velocity(moveDir.X * speed,
+				m_body->getLinearVelocity().getY(),
+				moveDir.Z * speed);
+			m_body->setLinearVelocity(velocity);
+		}
+
+		m_rotationY = atan2f(moveDir.X, moveDir.Z) * core::RADTODEG;
+
+		if (distToPosition < POSITION_THRASHOLD)
+		{
+			
+			m_state = FogEnemyState::IDLE;
+			m_isStrafing = false;
+			m_stuckTimer = 0.0f;
+			if (m_animNode) m_animNode->setMD2Animation(EMAT_STAND);
+			if (m_body)
+				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+
+			m_state = FogEnemyState::IDLE;
+		}
+
 		break;
 	}
 
