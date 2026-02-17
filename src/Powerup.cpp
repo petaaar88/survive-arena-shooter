@@ -48,7 +48,8 @@ Powerup::Powerup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 			planeNode->setMaterialType(EMT_TRANSPARENT_ALPHA_CHANNEL);
 
 			// Rotate plane to be vertical (default is horizontal/flat on ground)
-			planeNode->setRotation(vector3df(90, 0, 0));
+			// Use -90 so texture faces right-side up
+			planeNode->setRotation(vector3df(-90, 0, 0));
 		}
 		m_node = planeNode;
 	}

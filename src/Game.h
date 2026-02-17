@@ -158,4 +158,10 @@ private:
 	IAnimatedMeshSceneNode* m_skinPreviewWeapon[3];
 	ISceneNode* m_skinPreviewPivot[3]; // parent nodes for rotation
 	f32 m_skinPreviewRotation;
+	bool m_skinDragging;
+	s32 m_skinDragLastX;
+
+	// Scene nodes to hide during customize
+	ISceneNode* m_skyBox;
+	IMeshSceneNode* m_mapNode;
 };

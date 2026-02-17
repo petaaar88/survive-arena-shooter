@@ -56,7 +56,7 @@ Game::Game()
 	, m_powerupIcons{nullptr, nullptr, nullptr}
 	, m_powerupTimers{nullptr, nullptr, nullptr}
 	, m_powerupTextures{nullptr, nullptr, nullptr}
-	, m_state(GameState::TESTING)
+	, m_state(GameState::MENU)
 	, m_menuBgTex(nullptr)
 	, m_logoTex(nullptr)
 	, m_playBtnTex(nullptr)
@@ -75,6 +75,10 @@ Game::Game()
 	, m_skinPreviewWeapon{nullptr, nullptr, nullptr}
 	, m_skinPreviewPivot{nullptr, nullptr, nullptr}
 	, m_skinPreviewRotation(0.0f)
+	, m_skinDragging(false)
+	, m_skinDragLastX(0)
+	, m_skyBox(nullptr)
+	, m_mapNode(nullptr)
 	, m_cameraYaw(0.0f)
 	, m_lastTime(0)
 	, m_centerX(0)
@@ -359,9 +363,9 @@ void Game::setupScene()
 		m_ground->setMaterialTexture(0, m_driver->getTexture("assets/textures/building/ground.jpg"));
 	}
 
-	m_smgr->addSkyBoxSceneNode(
-		m_driver->getTexture("assets/textures/skybox/irrlicht2_up.jpg"), 
-		m_driver->getTexture("assets/textures/skybox/irrlicht2_dn.jpg"), 
+	m_skyBox = m_smgr->addSkyBoxSceneNode(
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_up.jpg"),
+		m_driver->getTexture("assets/textures/skybox/irrlicht2_dn.jpg"),
 		m_driver->getTexture("assets/textures/skybox/irrlicht2_lf.jpg"),
 		m_driver->getTexture("assets/textures/skybox/irrlicht2_rt.jpg"),
 		m_driver->getTexture("assets/textures/skybox/irrlicht2_ft.jpg"),
@@ -411,7 +415,8 @@ void Game::setupScene()
 	m_smgr->setAmbientLight(SColorf(0.3f, 0.3f, 0.3f));
 
 
-	IMeshSceneNode* map = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/colloseum/Colloseum.obj"));
+	m_mapNode = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/colloseum/Colloseum.obj"));
+	IMeshSceneNode* map = m_mapNode;
 	map->setPosition(vector3df(-620, 180, 0));
 
 	map->setScale(vector3df(10, 11, 11));
@@ -743,7 +748,10 @@ void Game::run()
 		}
 		else if (m_state == GameState::CUSTOMIZE)
 		{
-			// Render 3D scene for skin previews, then overlay 2D
+			// Gray background, then render 3D model preview on top
+			dimension2d<u32> scr = m_driver->getScreenSize();
+			m_driver->draw2DRectangle(SColor(255, 50, 50, 50),
+				rect<s32>(0, 0, scr.Width, scr.Height));
 			m_smgr->drawAll();
 			drawCustomize();
 		}
@@ -1625,6 +1633,10 @@ void Game::updateMenu()
 			m_skinPreviewRotation = 0.0f;
 			m_previewedSkin = m_selectedSkin;
 			m_lastTime = m_device->getTimer()->getTime();
+			// Hide scene nodes so only gray background + model preview show
+			if (m_skyBox) m_skyBox->setVisible(false);
+			if (m_mapNode) m_mapNode->setVisible(false);
+			if (m_ground) m_ground->setVisible(false);
 			// Show only the previewed skin's model
 			for (int i = 0; i < 3; i++)
 			{
@@ -1674,13 +1686,35 @@ void Game::updatePaused()
 
 void Game::updateCustomize()
 {
-	// Rotate preview models
+	// Mouse drag to rotate preview model
 	u32 now = m_device->getTimer()->getTime();
 	f32 dt = (now - m_lastTime) / 1000.0f;
 	m_lastTime = now;
-	m_skinPreviewRotation += 40.0f * dt;
+
+	if (m_input.isLeftMouseDown())
+	{
+		if (!m_skinDragging)
+		{
+			m_skinDragging = true;
+			m_skinDragLastX = m_input.getMouseX();
+		}
+		else
+		{
+			s32 dx = m_input.getMouseX() - m_skinDragLastX;
+			m_skinPreviewRotation -= dx * 0.5f;
+			m_skinDragLastX = m_input.getMouseX();
+		}
+	}
+	else
+	{
+		m_skinDragging = false;
+		// Auto-rotate slowly when not dragging
+		m_skinPreviewRotation += 20.0f * dt;
+	}
+
 	if (m_skinPreviewRotation > 360.0f) m_skinPreviewRotation -= 360.0f;
-	// Only rotate the currently previewed/visible model
+	if (m_skinPreviewRotation < 0.0f) m_skinPreviewRotation += 360.0f;
+
 	if (m_skinPreviewPivot[m_previewedSkin])
 		m_skinPreviewPivot[m_previewedSkin]->setRotation(vector3df(0, m_skinPreviewRotation, 0));
 
@@ -1690,6 +1724,10 @@ void Game::updateCustomize()
 			if (m_skinPreviewPivot[i])
 				m_skinPreviewPivot[i]->setVisible(false);
 		}
+		// Restore scene nodes
+		if (m_skyBox) m_skyBox->setVisible(true);
+		if (m_mapNode) m_mapNode->setVisible(true);
+		if (m_ground) m_ground->setVisible(true);
 		m_state = GameState::MENU;
 	};
 
@@ -1763,7 +1801,7 @@ void Game::updateCustomize()
 		}
 
 		// Skin select button — equip or buy the currently previewed skin
-		static const s32 skinPrices[3] = { 0, 150, 250 };
+		static const s32 skinPrices[3] = { 0, 100, 175 };
 		static const char* skinPaths[3] = {
 			"assets/models/player/blade.pcx",
 			"assets/models/player/messiah.pcx",
@@ -1867,10 +1905,6 @@ void Game::drawCustomize()
 	dimension2d<u32> ss = m_driver->getScreenSize();
 	s32 cx = ss.Width / 2;
 
-	// Semi-transparent dark overlay so text is readable over 3D scene
-	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
-		rect<s32>(0, 0, ss.Width, ss.Height));
-
 	IGUIFont* font = m_gui->getSkin()->getFont();
 	if (!font) return;
 
@@ -1884,90 +1918,93 @@ void Game::drawCustomize()
 	font->draw(moneyStr, rect<s32>(0, 75, ss.Width, 110),
 		SColor(255, 255, 215, 0), true, true);
 
-	// Upgrade rows
-	s32 rowW = 500, rowH = 45, rowSpacing = 12;
+	// Upgrade rows — left side: label + level, right side: upgrade button
+	s32 rowW = 900, rowH = 55, rowSpacing = 16;
+	s32 btnW = 280; // width of the upgrade button on the right
 	s32 startY = 130;
 	s32 rowX = cx - rowW / 2;
 
-	// --- Health Upgrade ---
-	m_custHealthBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
+	// Helper lambda to draw one upgrade row
+	auto drawUpgradeRow = [&](const wchar_t* name, const wchar_t* bonus, s32 level, s32 maxLevel, rect<s32>& btnRect, s32 y)
 	{
-		bool maxed = m_healthUpgradeLevel >= 5;
-		s32 cost = maxed ? 0 : getUpgradeCost(m_healthUpgradeLevel);
+		bool maxed = level >= maxLevel;
+		s32 cost = maxed ? 0 : getUpgradeCost(level);
 		bool canAfford = !maxed && m_totalMoney >= cost;
 
-		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
-		m_driver->draw2DRectangle(bgColor, m_custHealthBtnRect);
+		// Left side: dark background with label text
+		s32 labelW = rowW - btnW - 10; // 10px gap between label and button
+		rect<s32> labelRect(rowX, y, rowX + labelW, y + rowH);
+		m_driver->draw2DRectangle(SColor(180, 40, 40, 40), labelRect);
 
-		wchar_t text[128];
+		// Draw level pips
+		wchar_t levelStr[128];
+		swprintf(levelStr, 128, L"%s  Lv.%d / %d  (%s)", name, level, maxLevel, bonus);
+		SColor labelColor = maxed ? SColor(255, 150, 150, 150) : SColor(255, 255, 255, 255);
+		font->draw(levelStr, rect<s32>(rowX + 10, y, rowX + labelW, y + rowH), labelColor, false, true);
+
+		// Right side: upgrade button
+		s32 btnX = rowX + rowW - btnW;
+		btnRect = rect<s32>(btnX, y, btnX + btnW, y + rowH);
+
+		SColor btnBg;
+		wchar_t btnText[64];
+		SColor btnTextColor(255, 255, 255, 255);
+
 		if (maxed)
-			swprintf(text, 128, L"[+] Health: Lv.%d / 5  (+25 HP)  MAX", m_healthUpgradeLevel);
+		{
+			btnBg = SColor(180, 80, 80, 80);
+			swprintf(btnText, 64, L"MAX");
+			btnTextColor = SColor(255, 150, 150, 150);
+		}
+		else if (canAfford)
+		{
+			btnBg = SColor(220, 0, 120, 0);
+			swprintf(btnText, 64, L"Upgrade $%d", cost);
+		}
 		else
-			swprintf(text, 128, L"[+] Health: Lv.%d / 5  (+25 HP)  Cost: $%d", m_healthUpgradeLevel, cost);
+		{
+			btnBg = SColor(180, 100, 30, 30);
+			swprintf(btnText, 64, L"$%d", cost);
+			btnTextColor = SColor(255, 255, 80, 80);
+		}
 
-		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
-		font->draw(text, m_custHealthBtnRect, textColor, true, true);
-	}
+		m_driver->draw2DRectangle(btnBg, btnRect);
+
+		// Button border
+		m_driver->draw2DRectangle(SColor(255, 180, 180, 180),
+			rect<s32>(btnX, y, btnX + btnW, y + 1));
+		m_driver->draw2DRectangle(SColor(255, 180, 180, 180),
+			rect<s32>(btnX, y + rowH - 1, btnX + btnW, y + rowH));
+		m_driver->draw2DRectangle(SColor(255, 180, 180, 180),
+			rect<s32>(btnX, y, btnX + 1, y + rowH));
+		m_driver->draw2DRectangle(SColor(255, 180, 180, 180),
+			rect<s32>(btnX + btnW - 1, y, btnX + btnW, y + rowH));
+
+		font->draw(btnText, btnRect, btnTextColor, true, true);
+	};
+
+	// --- Health Upgrade ---
+	drawUpgradeRow(L"Health", L"+25 HP", m_healthUpgradeLevel, 5, m_custHealthBtnRect, startY);
 
 	// --- Damage Upgrade ---
 	startY += rowH + rowSpacing;
-	m_custDamageBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
-	{
-		bool maxed = m_damageUpgradeLevel >= 5;
-		s32 cost = maxed ? 0 : getUpgradeCost(m_damageUpgradeLevel);
-		bool canAfford = !maxed && m_totalMoney >= cost;
-
-		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
-		m_driver->draw2DRectangle(bgColor, m_custDamageBtnRect);
-
-		wchar_t text[128];
-		if (maxed)
-			swprintf(text, 128, L"[+] Damage: Lv.%d / 5  (+10 DMG)  MAX", m_damageUpgradeLevel);
-		else
-			swprintf(text, 128, L"[+] Damage: Lv.%d / 5  (+10 DMG)  Cost: $%d", m_damageUpgradeLevel, cost);
-
-		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
-		font->draw(text, m_custDamageBtnRect, textColor, true, true);
-	}
+	drawUpgradeRow(L"Damage", L"+10 DMG", m_damageUpgradeLevel, 5, m_custDamageBtnRect, startY);
 
 	// --- Powerup Time Upgrade ---
 	startY += rowH + rowSpacing;
-	m_custPowerupBtnRect = rect<s32>(rowX, startY, rowX + rowW, startY + rowH);
-	{
-		bool maxed = m_powerupTimeLevel >= 5;
-		s32 cost = maxed ? 0 : getUpgradeCost(m_powerupTimeLevel);
-		bool canAfford = !maxed && m_totalMoney >= cost;
+	drawUpgradeRow(L"Powerup Time", L"+3s", m_powerupTimeLevel, 5, m_custPowerupBtnRect, startY);
 
-		SColor bgColor = canAfford ? SColor(180, 0, 80, 0) : SColor(180, 60, 60, 60);
-		m_driver->draw2DRectangle(bgColor, m_custPowerupBtnRect);
-
-		wchar_t text[128];
-		if (maxed)
-			swprintf(text, 128, L"[+] Powerup Time: Lv.%d / 5  (+3s)  MAX", m_powerupTimeLevel);
-		else
-			swprintf(text, 128, L"[+] Powerup Time: Lv.%d / 5  (+3s)  Cost: $%d", m_powerupTimeLevel, cost);
-
-		SColor textColor = maxed ? SColor(255, 150, 150, 150) : (canAfford ? SColor(255, 255, 255, 255) : SColor(255, 255, 80, 80));
-		font->draw(text, m_custPowerupBtnRect, textColor, true, true);
-	}
-
-	// --- Skins (3D model is rendered behind this overlay) ---
+	// --- Skins — vertical list, left-aligned ---
 	startY += rowH + rowSpacing + 10;
-	font->draw(L"Skins:", rect<s32>(rowX, startY, rowX + rowW, startY + 30),
-		SColor(255, 255, 255, 255), false, true);
-	startY += 35;
 
-	// Preview buttons in a row to switch which skin model is shown
 	static const wchar_t* skinNames[3] = { L"Default", L"Messiah", L"Undead" };
-	static const s32 skinPrices[3] = { 0, 150, 250 };
-	s32 skinBtnW = 150, skinBtnH = 35, skinSpacing = 20;
-	s32 totalSkinW = 3 * skinBtnW + 2 * skinSpacing;
-	s32 skinStartX = cx - totalSkinW / 2;
+	static const s32 skinPrices[3] = { 0, 100, 175 };
+	s32 skinBtnW = 220, skinBtnH = 40, skinSpacing = 10;
 
 	for (int i = 0; i < 3; i++)
 	{
-		s32 bx = skinStartX + i * (skinBtnW + skinSpacing);
-		m_custSkinPreviewBtnRects[i] = rect<s32>(bx, startY, bx + skinBtnW, startY + skinBtnH);
+		s32 by = startY + i * (skinBtnH + skinSpacing);
+		m_custSkinPreviewBtnRects[i] = rect<s32>(rowX, by, rowX + skinBtnW, by + skinBtnH);
 
 		// Background color: highlight the currently previewed skin
 		SColor bgColor;
@@ -1982,23 +2019,23 @@ void Game::drawCustomize()
 		if (m_previewedSkin == i)
 		{
 			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
-				rect<s32>(bx - 2, startY - 2, bx + skinBtnW + 2, startY));
+				rect<s32>(rowX - 2, by - 2, rowX + skinBtnW + 2, by));
 			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
-				rect<s32>(bx - 2, startY + skinBtnH, bx + skinBtnW + 2, startY + skinBtnH + 2));
+				rect<s32>(rowX - 2, by + skinBtnH, rowX + skinBtnW + 2, by + skinBtnH + 2));
 			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
-				rect<s32>(bx - 2, startY, bx, startY + skinBtnH));
+				rect<s32>(rowX - 2, by, rowX, by + skinBtnH));
 			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
-				rect<s32>(bx + skinBtnW, startY, bx + skinBtnW + 2, startY + skinBtnH));
+				rect<s32>(rowX + skinBtnW, by, rowX + skinBtnW + 2, by + skinBtnH));
 		}
 
 		font->draw(skinNames[i], m_custSkinPreviewBtnRects[i],
 			SColor(255, 255, 255, 255), true, true);
 	}
 
-	// Select/Buy button below the 3D model area
-	s32 selectBtnW = 200, selectBtnH = 40;
-	s32 selectBtnY = ss.Height - 80 - selectBtnH - 10;
-	s32 selectBtnX = cx - selectBtnW / 2;
+	// Select/Buy button — left-aligned below the skin list
+	s32 selectBtnW = 220, selectBtnH = 40;
+	s32 selectBtnY = startY + 3 * (skinBtnH + skinSpacing) + 5;
+	s32 selectBtnX = rowX;
 	{
 		int i = m_previewedSkin;
 		m_custSkinSelectBtnRects[i] = rect<s32>(selectBtnX, selectBtnY, selectBtnX + selectBtnW, selectBtnY + selectBtnH);
@@ -2031,13 +2068,13 @@ void Game::drawCustomize()
 
 		// Border
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
-			rect<s32>(selectBtnX - 1, selectBtnY - 1, selectBtnX + selectBtnW + 1, selectBtnY));
+			rect<s32>(selectBtnX, selectBtnY, selectBtnX + selectBtnW, selectBtnY + 1));
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
-			rect<s32>(selectBtnX - 1, selectBtnY + selectBtnH, selectBtnX + selectBtnW + 1, selectBtnY + selectBtnH + 1));
+			rect<s32>(selectBtnX, selectBtnY + selectBtnH - 1, selectBtnX + selectBtnW, selectBtnY + selectBtnH));
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
-			rect<s32>(selectBtnX - 1, selectBtnY, selectBtnX, selectBtnY + selectBtnH));
+			rect<s32>(selectBtnX, selectBtnY, selectBtnX + 1, selectBtnY + selectBtnH));
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
-			rect<s32>(selectBtnX + selectBtnW, selectBtnY, selectBtnX + selectBtnW + 1, selectBtnY + selectBtnH));
+			rect<s32>(selectBtnX + selectBtnW - 1, selectBtnY, selectBtnX + selectBtnW, selectBtnY + selectBtnH));
 
 		font->draw(btnText, m_custSkinSelectBtnRects[i],
 			SColor(255, 255, 255, 255), true, true);
