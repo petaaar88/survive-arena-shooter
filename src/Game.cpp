@@ -7,10 +7,9 @@ static const f32 CAMERA_DISTANCE = 120.0f;
 static const f32 CAMERA_HEIGHT = 30.0f;
 static const f32 ENEMY_CHASING_VOLUME = 0.2f;
 
-// Wave system
 static const f32 GAME_DURATION = 180.0f;
-static const f32 WAVE1_TIME = 120.0f;  // wave 1 while timer > 120
-static const f32 WAVE2_TIME = 60.0f;   // wave 2 while timer > 60
+static const f32 WAVE1_TIME = 120.0f;  
+static const f32 WAVE2_TIME = 60.0f;   
 static const s32 WAVE1_MAX = 3;
 static const s32 WAVE2_MAX = 6;
 static const s32 WAVE3_MAX = 10;
@@ -19,15 +18,12 @@ static const f32 WAVE2_SPAWN_INTERVAL = 2.0f;
 static const f32 WAVE3_SPAWN_INTERVAL = 1.0f;
 static const f32 GLOBAL_ATTACK_COOLDOWN = 1.5f;
 
-// Pickup system
 static const f32 PICKUP_SPAWN_MIN = 8.0f;
 static const f32 PICKUP_SPAWN_MAX = 20.0f;
 static const s32 PICKUP_AMMO_AMOUNT = 7;
 
-// Powerup in-world lifetime (seconds before it despawns)
 static const f32 POWERUP_WORLD_LIFETIME = 15.0f;
 
-// Money rewards per enemy kill
 static const s32 MONEY_BASIC_KILL = 30;
 static const s32 MONEY_FAST_KILL = 50;
 static const s32 MONEY_FOG_KILL = 80;
@@ -173,13 +169,7 @@ void Game::init()
 	setupHUD();
 
 	m_player = new Player(m_smgr, m_driver, m_physics);
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, 200)));
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, -200)));
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-200, 0, 200)));
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(200, 0, -200)));
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(300, 0, 0)));
-	//m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, vector3df(-300, 0, 0)));
-	// Multiple ammo pickup spawn positions
+
 	vector3df pickupPositions[] = {
 		vector3df(-400, -25, -300),
 		vector3df( 400, -25,  300),
@@ -192,12 +182,11 @@ void Game::init()
 	for (const auto& pos : pickupPositions)
 	{
 		Pickup* p = new Pickup(m_smgr, m_driver, m_physics, pos, PickupType::AMMO);
-		p->setCollected(true); // start hidden
+		p->setCollected(true); 
 		m_pickups.push_back(p);
 	}
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
-	// Powerup spawn positions (testing scene only)
 	if (m_state == GameState::TESTING)
 	{
 		m_powerups.push_back(new Powerup(m_smgr, m_driver, m_physics,
@@ -208,7 +197,6 @@ void Game::init()
 			vector3df(0, -25, 200), PowerupType::GOD_MODE));
 	}
 
-	// Load menu textures
 	m_menuBgTex = m_driver->getTexture("assets/textures/backgrounds/mainmenu.png");
 	m_logoTex = m_driver->getTexture("assets/textures/UI/logo.png");
 	m_playBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Start/Start1.png");
@@ -217,14 +205,12 @@ void Game::init()
 	m_resumeBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Resume/Resume1.png");
 	m_backBtnTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Back/Back1.png");
 
-	// Hover textures
 	m_playBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Start/Start3.png");
 	m_customizeBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Customize/Customize3.png");
 	m_exitBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Quit/Quit3.png");
 	m_resumeBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Resume/Resume3.png");
 	m_backBtnHoverTex = m_driver->getTexture("assets/textures/UI/Button Itch Pack/Back/Back3.png");
 
-	// Create skin preview models (hidden, used in customize screen)
 	{
 		static const char* skinTexPaths[3] = {
 			"assets/models/player/blade.pcx",
@@ -266,37 +252,30 @@ void Game::init()
 		}
 	}
 
-	// Calculate button rects (centered on screen)
 	{
 		dimension2d<u32> ss = m_driver->getScreenSize();
 		s32 btnW = 300, btnH = 80, spacing = 25;
 		s32 cx = ss.Width / 2;
 
-		// Logo at top area
 		s32 logoW = 500, logoH = 190;
 		s32 logoY = 60;
 		m_logoRect = rect<s32>(cx - logoW/2, logoY, cx + logoW/2, logoY + logoH);
 
-		// Play and Customize grouped together below logo
 		s32 groupStartY = logoY + logoH + 40;
 		m_playBtnRect = rect<s32>(cx - btnW/2, groupStartY, cx + btnW/2, groupStartY + btnH);
 		m_customizeBtnRect = rect<s32>(cx - btnW/2, groupStartY + btnH + spacing, cx + btnW/2, groupStartY + 2*btnH + spacing);
 
-		// Exit button lower, separated from the group
 		s32 exitY = ss.Height - btnH - 60;
 		m_exitBtnRect = rect<s32>(cx - btnW/2, exitY, cx + btnW/2, exitY + btnH);
 
-		// Pause menu buttons
 		s32 pauseStartY = ss.Height / 2 - (2 * btnH + spacing) / 2;
 		m_resumeBtnRect = rect<s32>(cx - btnW/2, pauseStartY, cx + btnW/2, pauseStartY + btnH);
 		m_pauseExitBtnRect = rect<s32>(cx - btnW/2, pauseStartY + btnH + spacing, cx + btnW/2, pauseStartY + 2*btnH + spacing);
 
-		// Game over / win exit button (below center)
 		s32 endExitY = ss.Height / 2 + 80;
 		m_endScreenExitBtnRect = rect<s32>(cx - btnW/2, endExitY, cx + btnW/2, endExitY + btnH);
 	}
 
-	// Hide HUD initially unless starting in TESTING
 	setHUDVisible(m_state == GameState::TESTING);
 
 	m_lastTime = m_device->getTimer()->getTime();
@@ -307,11 +286,10 @@ void Game::init()
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
 
-	// Obstacle data: { posX, posZ, width, height, depth, isPillar }
 	struct ObstacleData { float x, z, w, h, d; bool isPillar; };
 	static const ObstacleData obstacles[] =
 	{
-		// Pillars (tall & thick)
+		// Pillars 
 		{  150,  250, 50, 180, 50, true },
 		{ -300,  400, 60, 210, 60, true },
 		{  500, -200, 40, 150, 40, true },
@@ -325,7 +303,7 @@ void Game::init()
 		{  700,  900, 70, 240, 70, true },
 		{ -500,  800, 40, 165, 40, true },
 
-		// Boxes (short & wide)
+		// Boxes 
 		{  250, -350, 50, 30, 40, false },
 		{ -400, -150, 60, 40, 50, false },
 		{  600,  350, 40, 25, 35, false },
@@ -368,7 +346,7 @@ void Game::setupScene()
 	// Camera
 	m_camera = m_smgr->addCameraSceneNode();
 	m_camera->setFarValue(20000.0f);
-	// Ground plane (visual)
+	
 	m_ground = m_smgr->addCubeSceneNode(10.0f);
 	if (m_ground)
 	{
@@ -387,11 +365,10 @@ void Game::setupScene()
 		m_driver->getTexture("assets/textures/skybox/irrlicht2_ft.jpg"),
 		m_driver->getTexture("assets/textures/skybox/irrlicht2_bk.jpg"));
 
-	// Ground physics body (static box)
 	btBoxShape* groundShape = new btBoxShape(btVector3(1500.0f, 0.5f, 1500.0f));
 	m_groundBody = m_physics->createRigidBody(0.0f, groundShape, vector3df(0, -25, 0));
 
-	// Arena boundary walls (invisible)
+	// Arena boundary walls 
 	float wallHeight = 200.0f;
 	float wallThickness = 80.0f;
 	float halfGround = 1500.0f;
@@ -426,7 +403,6 @@ void Game::setupScene()
 	wallSide2X->getMotionState()->setWorldTransform(tr2);
 	wallSide2X->setWorldTransform(tr2);
 
-	// Lighting
 	m_smgr->addLightSceneNode(0, vector3df(0, 200, 0), SColorf(1.0f, 1.0f, 1.0f), 800.0f);
 	m_smgr->setAmbientLight(SColorf(0.3f, 0.3f, 0.3f));
 
@@ -439,7 +415,6 @@ void Game::setupScene()
 	map->setMaterialFlag(EMF_LIGHTING, false);
 	map->setMaterialFlag(EMF_FOG_ENABLE, true);
 
-	// Initialize fog to disabled state
 	m_driver->setFog(SColor(255, 180, 180, 180), EFT_FOG_LINEAR, 9999.0f, 10000.0f, 0.0f, false, true);
 
 	setupGates(map);
@@ -468,7 +443,6 @@ void Game::setupGates(IMeshSceneNode* map)
 		gate->setMaterialFlag(video::EMF_LIGHTING, false);
 		gate->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 
-		// Black backdrop
 		IMeshSceneNode* blackCube = m_smgr->addCubeSceneNode(20.0f, gate);
 		blackCube->setPosition(vector3df(2, 5.6f, -10.3f));
 		blackCube->setScale(vector3df(0.3f, 0.35f, 0.1f));
@@ -480,7 +454,6 @@ void Game::setupGates(IMeshSceneNode* map)
 		blackCube->getMaterial(0).AmbientColor = SColor(255, 0, 0, 0);
 		blackCube->getMaterial(0).EmissiveColor = SColor(255, 0, 0, 0);
 
-		// Left pillar
 		IMeshSceneNode* leftCube = m_smgr->addCubeSceneNode(20.0f, gate);
 		leftCube->setPosition(vector3df(-2, 5.6f, -9.8f));
 		leftCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
@@ -488,7 +461,6 @@ void Game::setupGates(IMeshSceneNode* map)
 		leftCube->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 		leftCube->setMaterialTexture(0, pillarTex);
 
-		// Right pillar
 		IMeshSceneNode* rightCube = m_smgr->addCubeSceneNode(20.0f, gate);
 		rightCube->setPosition(vector3df(5.5f, 5.6f, -9.8f));
 		rightCube->setScale(vector3df(0.06f, 0.35f, 0.1f));
@@ -496,12 +468,11 @@ void Game::setupGates(IMeshSceneNode* map)
 		rightCube->setMaterialFlag(video::EMF_FOG_ENABLE, true);
 		rightCube->setMaterialTexture(0, pillarTex);
 
-		// Convert local gate position to world space
 		vector3df mapPos = map->getPosition();
 		vector3df mapScale = map->getScale();
 		vector3df worldPos(
 			mapPos.X + g.position.X * mapScale.X,
-			0.0f,  // above ground (ground is at -25)
+			0.0f,  
 			mapPos.Z + g.position.Z * mapScale.Z
 		);
 		m_gatePositions.push_back(worldPos);
@@ -520,22 +491,22 @@ void Game::spawnEnemyAtGate(int gateIndex, EnemyType type)
 	forward.Y = 0;
 	forward.normalize();
 
-	// Spawn behind the gate, enemy walks forward through it
+	
 	vector3df spawnPos = gatePos - forward * SPAWN_OFFSET;
 	spawnPos.Y = 0.0f;
 
-	// Per-gate spawn position adjustments
+	
 	if (gateIndex == 2)
 	{
-		spawnPos.X += 500.0f;               // shift +X
-		spawnPos.Z += 400.0f;               // shift backward (+Z)
-		forward = vector3df(0, 0, -1);      // face -Z
+		spawnPos.X += 500.0f;               
+		spawnPos.Z += 400.0f;               
+		forward = vector3df(0, 0, -1);      
 	}
 	if (gateIndex == 3)
 	{
-		spawnPos.X += 700.0f;               // shift +X
-		spawnPos.Z -= 400.0f;               // shift backward (-Z)
-		forward = vector3df(0, 0, 1);       // face +Z
+		spawnPos.X += 700.0f;               
+		spawnPos.Z -= 400.0f;               
+		forward = vector3df(0, 0, 1);       
 	}
 
 	m_enemies.push_back(new Enemy(m_smgr, m_driver, m_physics, spawnPos, forward, m_soundEngine, type));
@@ -574,7 +545,6 @@ void Game::spawnFogEnemyAtGate(int gateIndex)
 
 void Game::setupHUD()
 {
-	// Bullet icon
 	ITexture* bulletHudGui = m_driver->getTexture("assets/textures/hud/bullet_icon.png");
 	if (bulletHudGui)
 	{
@@ -583,7 +553,6 @@ void Game::setupHUD()
 		img->setMaxSize(dimension2du(72,72));
 	}
 
-	// Ammo counter
 	m_ammoText = m_gui->addStaticText(
 		L"5",
 		rect<s32>(m_driver->getScreenSize().Width - (m_driver->getScreenSize().Width / 11), m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 10), m_driver->getScreenSize().Width - (m_driver->getScreenSize().Width / 10) + 200, 900),
@@ -591,7 +560,6 @@ void Game::setupHUD()
 	);
 	m_ammoText->setOverrideColor(SColor(255, 255, 255, 255));
 
-	// Health display
 	m_healthText = m_gui->addStaticText(
 		L"HP: 100",
 		rect<s32>(m_driver->getScreenSize().Width / 22, m_driver->getScreenSize().Height - (m_driver->getScreenSize().Height / 10), 400, 900),
@@ -599,7 +567,6 @@ void Game::setupHUD()
 	);
 	m_healthText->setOverrideColor(SColor(255, 255, 255, 255));
 
-	// Timer (top-center)
 	{
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_timerText = m_gui->addStaticText(
@@ -610,7 +577,6 @@ void Game::setupHUD()
 		m_timerText->setOverrideColor(SColor(255, 255, 255, 255));
 	}
 
-	// Wave indicator (below timer)
 	{
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_waveText = m_gui->addStaticText(
@@ -621,7 +587,6 @@ void Game::setupHUD()
 		m_waveText->setOverrideColor(SColor(255, 255, 200, 0));
 	}
 
-	// Kill count (top-right)
 	{
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_killText = m_gui->addStaticText(
@@ -632,7 +597,6 @@ void Game::setupHUD()
 		m_killText->setOverrideColor(SColor(255, 255, 255, 255));
 	}
 
-	// Money (top-right, below kills)
 	{
 		s32 screenW = m_driver->getScreenSize().Width;
 		m_moneyText = m_gui->addStaticText(
@@ -643,7 +607,6 @@ void Game::setupHUD()
 		m_moneyText->setOverrideColor(SColor(255, 255, 215, 0));
 	}
 
-	// Crosshair
 	ITexture* crosshairTex = m_driver->getTexture("assets/textures/hud/crosshair.png");
 	if (crosshairTex)
 	{
@@ -742,11 +705,10 @@ void Game::run()
 			break;
 		}
 
-		// Toggle debug visualization
 		if (m_input.consumeKeyPress(KEY_F1))
 			m_showDebug = !m_showDebug;
 
-		// Render — match clear color to fog when active
+		// Render
 		SColor clearColor(0, 0, 0, 0);
 		for (FogEnemy* f : m_fogEnemies)
 		{
@@ -808,7 +770,6 @@ void Game::run()
 
 void Game::updatePlaying(f32 deltaTime)
 {
-	// ESC → pause
 	if (m_input.consumeKeyPress(KEY_ESCAPE))
 	{
 		m_state = GameState::PAUSED;
@@ -816,14 +777,13 @@ void Game::updatePlaying(f32 deltaTime)
 		return;
 	}
 
-	// Mouse look
 	position2d<s32> cursorPos = m_device->getCursorControl()->getPosition();
 	f32 mouseDX = (f32)(cursorPos.X - m_centerX);
 	m_cameraYaw += mouseDX * MOUSE_SENSITIVITY;
 	m_device->getCursorControl()->setPosition(m_centerX, m_centerY);
 
 
-	// Wave system: timer and auto-spawning
+	// Wave system
 	m_gameTimer -= deltaTime;
 	if (m_gameTimer <= 0.0f)
 	{
@@ -862,7 +822,6 @@ void Game::updatePlaying(f32 deltaTime)
 		spawnInterval = WAVE3_SPAWN_INTERVAL;
 	}
 
-	// Count alive enemies by type
 	s32 aliveBasic = 0, aliveFast = 0;
 	for (Enemy* enemy : m_enemies)
 	{
@@ -925,7 +884,6 @@ void Game::updatePlaying(f32 deltaTime)
 		{
 			m_powerupSpawnedWave[waveIdx] = true;
 
-			// Pick random powerup type
 			int typeRoll = rand() % 3;
 			PowerupType ptype = static_cast<PowerupType>(typeRoll);
 
@@ -945,10 +903,8 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
-	// 2. Determine which enemy gets attack permission (only one at a time)
 	bool anyAttacking = false;
 	for (Enemy* enemy : m_enemies)
 	{
@@ -989,13 +945,13 @@ void Game::updatePlaying(f32 deltaTime)
 	for (Enemy* enemy : m_enemies)
 		enemy->setSaluteAllowed(!enemy->isDead() && enemy->getState() == EnemyState::CHASE);
 
-	// Update enemy AI (sets velocities)
+	// Update enemy AI 
 	for (Enemy* enemy : m_enemies)
 		enemy->updateAI(deltaTime, m_player->getPosition());
 	for (FogEnemy* fogEnemy : m_fogEnemies)
 		fogEnemy->updateAI(deltaTime, m_player->getPosition());
 
-	// Chasing sound: play looping while at least one enemy is chasing
+	// Chasing sound
 	{
 		bool anyChasing = false;
 		for (Enemy* enemy : m_enemies)
@@ -1024,17 +980,15 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 3. Step physics simulation
 	m_physics->stepSimulation(deltaTime);
 
-	// 4. Sync physics → visual nodes
+	// Sync physics → visual nodes
 	m_player->update(deltaTime);
 	for (Enemy* enemy : m_enemies)
 		enemy->update(deltaTime);
 	for (FogEnemy* fogEnemy : m_fogEnemies)
 		fogEnemy->update(deltaTime);
 
-	// 5. Check if player's shot hit any enemy
 	btCollisionObject* hitObject = m_player->getLastHitObject();
 	if (hitObject)
 	{
@@ -1074,7 +1028,6 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 6. Check if any enemy's attack trigger overlaps player (one at a time with global cooldown)
 	m_attackCooldown -= deltaTime;
 	if (m_attackCooldown <= 0.0f)
 	{
@@ -1094,11 +1047,9 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 7. Pickup spawn timer — randomly respawn a hidden pickup
 	m_pickupSpawnTimer -= deltaTime;
 	if (m_pickupSpawnTimer <= 0.0f)
 	{
-		// Collect indices of all hidden pickups
 		std::vector<int> hiddenIndices;
 		for (int i = 0; i < (int)m_pickups.size(); i++)
 		{
@@ -1113,7 +1064,6 @@ void Game::updatePlaying(f32 deltaTime)
 		m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 	}
 
-	// 8. Check pickup overlap for all pickups
 	for (Pickup* p : m_pickups)
 	{
 		p->update(deltaTime);
@@ -1126,7 +1076,6 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
-	// 9. Update powerups + check overlap + cleanup expired
 	for (Powerup* pw : m_powerups)
 	{
 		pw->update(deltaTime);
@@ -1574,28 +1523,23 @@ void Game::setHUDVisible(bool visible)
 
 void Game::resetGame()
 {
-	// Clear all enemies
 	for (Enemy* e : m_enemies) delete e;
 	m_enemies.clear();
 
 	for (FogEnemy* f : m_fogEnemies) delete f;
 	m_fogEnemies.clear();
 
-	// Clear powerups
 	for (Powerup* pw : m_powerups) delete pw;
 	m_powerups.clear();
 
-	// Reset pickups (all hidden)
 	for (Pickup* p : m_pickups)
 		p->setCollected(true);
 	m_pickupSpawnTimer = PICKUP_SPAWN_MIN + static_cast<f32>(rand()) / RAND_MAX * (PICKUP_SPAWN_MAX - PICKUP_SPAWN_MIN);
 
 	m_player->resetAnimations();
 
-	// Reset player (apply health upgrade)
 	m_player->reset(m_healthUpgradeLevel);
 
-	// Reset game state
 	m_gameTimer = GAME_DURATION;
 	m_spawnTimer = 0.0f;
 	m_currentWave = 1;
@@ -1607,7 +1551,6 @@ void Game::resetGame()
 	m_powerupSpawnedWave[1] = false;
 	m_powerupSpawnedWave[2] = false;
 
-	// Stop chasing sound if playing
 	if (m_chasingSound)
 	{
 		m_chasingSound->stop();
@@ -1618,7 +1561,6 @@ void Game::resetGame()
 
 void Game::updateMenu()
 {
-	// Press T to enter testing mode
 	if (m_input.consumeKeyPress(KEY_KEY_T))
 	{
 		m_state = GameState::TESTING;
@@ -1634,7 +1576,6 @@ void Game::updateMenu()
 		if (isClickInRect(m_playBtnRect))
 		{
 			playClickSound();
-			// Show loading screen for 2 seconds
 			{
 				dimension2d<u32> ss = m_driver->getScreenSize();
 				u32 startMs = m_device->getTimer()->getTime();
@@ -1731,7 +1672,6 @@ void Game::updatePaused()
 
 void Game::updateCustomize()
 {
-	// Mouse drag to rotate preview model
 	u32 now = m_device->getTimer()->getTime();
 	f32 dt = (now - m_lastTime) / 1000.0f;
 	m_lastTime = now;
@@ -1769,7 +1709,6 @@ void Game::updateCustomize()
 			if (m_skinPreviewPivot[i])
 				m_skinPreviewPivot[i]->setVisible(false);
 		}
-		// Restore scene nodes
 		if (m_skyBox) m_skyBox->setVisible(true);
 		if (m_mapNode) m_mapNode->setVisible(true);
 		if (m_ground) m_ground->setVisible(true);
@@ -1784,7 +1723,6 @@ void Game::updateCustomize()
 
 	if (m_input.consumeLeftClick())
 	{
-		// Back button
 		if (isClickInRect(m_custBackBtnRect))
 		{
 			playClickSound();
@@ -1792,7 +1730,6 @@ void Game::updateCustomize()
 			return;
 		}
 
-		// Health upgrade
 		if (isClickInRect(m_custHealthBtnRect) && m_healthUpgradeLevel < 5)
 		{
 			s32 cost = getUpgradeCost(m_healthUpgradeLevel);
@@ -1804,7 +1741,6 @@ void Game::updateCustomize()
 			}
 		}
 
-		// Damage upgrade
 		if (isClickInRect(m_custDamageBtnRect) && m_damageUpgradeLevel < 5)
 		{
 			s32 cost = getUpgradeCost(m_damageUpgradeLevel);
@@ -1816,7 +1752,6 @@ void Game::updateCustomize()
 			}
 		}
 
-		// Powerup time upgrade
 		if (isClickInRect(m_custPowerupBtnRect) && m_powerupTimeLevel < 5)
 		{
 			s32 cost = getUpgradeCost(m_powerupTimeLevel);
@@ -1828,7 +1763,6 @@ void Game::updateCustomize()
 			}
 		}
 
-		// Skin preview buttons — switch which model is shown
 		for (int i = 0; i < 3; i++)
 		{
 			if (isClickInRect(m_custSkinPreviewBtnRects[i]) && i != m_previewedSkin)
@@ -1850,7 +1784,6 @@ void Game::updateCustomize()
 			}
 		}
 
-		// Skin select button — equip or buy the currently previewed skin
 		static const s32 skinPrices[3] = { 0, 100, 175 };
 		static const char* skinPaths[3] = {
 			"assets/models/player/blade.pcx",
@@ -1884,7 +1817,6 @@ void Game::drawMenu()
 {
 	dimension2d<u32> ss = m_driver->getScreenSize();
 
-	// Background
 	if (m_menuBgTex)
 	{
 		dimension2d<u32> texSize = m_menuBgTex->getOriginalSize();
@@ -1893,7 +1825,6 @@ void Game::drawMenu()
 			rect<s32>(0, 0, texSize.Width, texSize.Height));
 	}
 
-	// Logo
 	if (m_logoTex)
 	{
 		dimension2d<u32> ts = m_logoTex->getOriginalSize();
@@ -1901,7 +1832,6 @@ void Game::drawMenu()
 			rect<s32>(0, 0, ts.Width, ts.Height), 0, 0, true);
 	}
 
-	// Buttons
 	drawButton(m_playBtnTex, m_playBtnHoverTex, m_playBtnRect);
 	drawButton(m_customizeBtnTex, m_customizeBtnHoverTex, m_customizeBtnRect);
 	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_exitBtnRect);
@@ -1911,14 +1841,11 @@ void Game::drawPause()
 {
 	dimension2d<u32> ss = m_driver->getScreenSize();
 
-	// Dark semi-transparent overlay
 	m_driver->draw2DRectangle(SColor(150, 0, 0, 0),
 		rect<s32>(0, 0, ss.Width, ss.Height));
 
-	// Resume button
 	drawButton(m_resumeBtnTex, m_resumeBtnHoverTex, m_resumeBtnRect);
 
-	// Exit button
 	drawButton(m_exitBtnTex, m_exitBtnHoverTex, m_pauseExitBtnRect);
 }
 
@@ -1935,23 +1862,19 @@ void Game::drawCustomize()
 	IGUIFont* font = m_gui->getSkin()->getFont();
 	if (!font) return;
 
-	// Title
 	font->draw(L"CUSTOMIZE", rect<s32>(0, 30, ss.Width, 70),
 		SColor(255, 255, 255, 255), true, true);
 
-	// Money display
 	wchar_t moneyStr[64];
 	swprintf(moneyStr, 64, L"Money: $%d", m_totalMoney);
 	font->draw(moneyStr, rect<s32>(0, 75, ss.Width, 110),
 		SColor(255, 255, 215, 0), true, true);
 
-	// Upgrade rows — left side: label + level, right side: upgrade button
 	s32 rowW = 900, rowH = 55, rowSpacing = 16;
 	s32 btnW = 280; // width of the upgrade button on the right
 	s32 startY = 130;
 	s32 rowX = cx - rowW / 2;
 
-	// Helper lambda to draw one upgrade row
 	auto drawUpgradeRow = [&](const wchar_t* name, const wchar_t* bonus, s32 level, s32 maxLevel, rect<s32>& btnRect, s32 y)
 	{
 		bool maxed = level >= maxLevel;
@@ -2010,18 +1933,14 @@ void Game::drawCustomize()
 		font->draw(btnText, btnRect, btnTextColor, true, true);
 	};
 
-	// --- Health Upgrade ---
 	drawUpgradeRow(L"Health", L"+25 HP", m_healthUpgradeLevel, 5, m_custHealthBtnRect, startY);
 
-	// --- Damage Upgrade ---
 	startY += rowH + rowSpacing;
 	drawUpgradeRow(L"Damage", L"+10 DMG", m_damageUpgradeLevel, 5, m_custDamageBtnRect, startY);
 
-	// --- Powerup Time Upgrade ---
 	startY += rowH + rowSpacing;
 	drawUpgradeRow(L"Powerup Time", L"+3s", m_powerupTimeLevel, 5, m_custPowerupBtnRect, startY);
 
-	// --- Skins — vertical list, left-aligned ---
 	startY += rowH + rowSpacing + 10;
 
 	static const wchar_t* skinNames[3] = { L"Default", L"Messiah", L"Undead" };
@@ -2033,16 +1952,14 @@ void Game::drawCustomize()
 		s32 by = startY + i * (skinBtnH + skinSpacing);
 		m_custSkinPreviewBtnRects[i] = rect<s32>(rowX, by, rowX + skinBtnW, by + skinBtnH);
 
-		// Background color: highlight the currently previewed skin
 		SColor bgColor;
 		if (m_previewedSkin == i)
-			bgColor = SColor(220, 0, 100, 180); // previewed = blue
+			bgColor = SColor(220, 0, 100, 180); 
 		else
-			bgColor = SColor(200, 60, 60, 60);  // not previewed = grey
+			bgColor = SColor(200, 60, 60, 60);  
 
 		m_driver->draw2DRectangle(bgColor, m_custSkinPreviewBtnRects[i]);
 
-		// Border for previewed skin
 		if (m_previewedSkin == i)
 		{
 			m_driver->draw2DRectangle(SColor(255, 0, 200, 255),
@@ -2059,7 +1976,6 @@ void Game::drawCustomize()
 			SColor(255, 255, 255, 255), true, true);
 	}
 
-	// Select/Buy button — left-aligned below the skin list
 	s32 selectBtnW = 220, selectBtnH = 40;
 	s32 selectBtnY = startY + 3 * (skinBtnH + skinSpacing) + 5;
 	s32 selectBtnX = rowX;
@@ -2072,28 +1988,27 @@ void Game::drawCustomize()
 
 		if (m_selectedSkin == i)
 		{
-			bgColor = SColor(220, 0, 100, 180); // already equipped = blue
+			bgColor = SColor(220, 0, 100, 180); 
 			swprintf(btnText, 64, L"Equipped");
 		}
 		else if (m_skinUnlocked[i])
 		{
-			bgColor = SColor(200, 0, 120, 0); // owned = green
+			bgColor = SColor(200, 0, 120, 0);
 			swprintf(btnText, 64, L"Select");
 		}
 		else if (m_totalMoney >= skinPrices[i])
 		{
-			bgColor = SColor(200, 120, 100, 0); // can buy = orange
+			bgColor = SColor(200, 120, 100, 0);
 			swprintf(btnText, 64, L"Buy ($%d)", skinPrices[i]);
 		}
 		else
 		{
-			bgColor = SColor(200, 70, 30, 30); // can't afford = dark red
+			bgColor = SColor(200, 70, 30, 30); 
 			swprintf(btnText, 64, L"$%d", skinPrices[i]);
 		}
 
 		m_driver->draw2DRectangle(bgColor, m_custSkinSelectBtnRects[i]);
 
-		// Border
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
 			rect<s32>(selectBtnX, selectBtnY, selectBtnX + selectBtnW, selectBtnY + 1));
 		m_driver->draw2DRectangle(SColor(255, 200, 200, 200),
@@ -2119,7 +2034,6 @@ void Game::drawGameOver()
 {
 	dimension2d<u32> ss = m_driver->getScreenSize();
 
-	// Dark overlay
 	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
 		rect<s32>(0, 0, ss.Width, ss.Height));
 
@@ -2147,7 +2061,6 @@ void Game::drawWin()
 {
 	dimension2d<u32> ss = m_driver->getScreenSize();
 
-	// Dark overlay
 	m_driver->draw2DRectangle(SColor(180, 0, 0, 0),
 		rect<s32>(0, 0, ss.Width, ss.Height));
 

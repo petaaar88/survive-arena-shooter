@@ -23,7 +23,6 @@ static const f32 GRENADE_SPAWN_HEIGHT = 30.0f;
 static const f32 GRENADE_SIZE = 5.0f;
 static const f32 THROWING_SOUND_VOLUME = 0.5f;
 
-// Fog (Irrlicht EFT_FOG_LINEAR)
 static const f32 FOG_DURATION = 10.0f;
 static const f32 FOG_FADING_DURATION = 5.0f;
 static const f32 FOG_START_INITIAL = 250.0f;
@@ -158,7 +157,6 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		return;
 	}
 
-	// Pain interrupts
 	if (m_isInPain)
 	{
 		m_painTimer -= deltaTime;
@@ -256,7 +254,6 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 
-		// Rotate towards center (0, 0, 0)
 		vector3df pos = getPosition();
 		vector3df toCenter = vector3df(0, 0, 0) - pos;
 		toCenter.Y = 0;
@@ -292,7 +289,6 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 		if (m_isStrafing)
 		{
-			// Move perpendicular to player direction
 			moveDir = vector3df(-dir.Z, 0, dir.X) * m_strafeDirection;
 			m_strafeTimer -= deltaTime;
 			if (m_strafeTimer <= 0)
@@ -304,7 +300,6 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		}
 		else
 		{
-			// Stuck detection: check if enemy barely moved
 			f32 distMoved = pos.getDistanceFrom(m_lastCheckedPos);
 			if (distMoved < STUCK_DISTANCE_THRESHOLD)
 			{
@@ -313,7 +308,6 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 				{
 					m_isStrafing = true;
 					m_strafeTimer = STRAFE_DURATION;
-					// Alternate direction: pick based on a simple heuristic
 					m_strafeDirection = (fmodf(pos.X + pos.Z, 2.0f) > 1.0f) ? 1.0f : -1.0f;
 				}
 			}
@@ -482,7 +476,6 @@ void FogEnemy::updateFog(f32 deltaTime)
 	}
 	else
 	{
-		// Lerp from initial to final based on elapsed time
 		f32 t = 1.0f - (m_fogTimer / FOG_DURATION);
 		m_fogStartDist = FOG_START_INITIAL + (FOG_START_FINAL - FOG_START_INITIAL) * t;
 		m_fogEndDist = FOG_END_INITIAL + (FOG_END_FINAL - FOG_END_INITIAL) * t;

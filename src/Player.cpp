@@ -12,7 +12,7 @@ static const s32 PLAYER_HEALTH_START = 100;
 static const f32 WAVE_ANIM_DURATION = 0.5f;
 static const f32 PAIN_ANIM_DURATION = 0.4f;
 
-// Audio volumes (0.0 = silent, 1.0 = full)
+//  (0.0 = silent, 1.0 = full)
 static const f32 SFX_VOLUME_SHOOT = 0.5f;
 static const f32 SFX_VOLUME_RUN = 0.3f;
 static const f32 SFX_VOLUME_PAIN = 0.6f;
@@ -50,7 +50,6 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	, m_runSound(nullptr)
 {
 	m_soundEngine = irrklang::createIrrKlangDevice();
-	// Load player model
 	IAnimatedMesh* playerMesh = smgr->getMesh("assets/models/player/tris.md2");
 	if (playerMesh)
 	{
@@ -65,7 +64,6 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		}
 	}
 
-	// Load weapon model, attach to player
 	IAnimatedMesh* weaponMesh = smgr->getMesh("assets/models/player/weapon.md2");
 	if (weaponMesh && m_playerNode)
 	{
@@ -79,7 +77,6 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 		}
 	}
 
-	// Create dynamic Bullet capsule (collides with obstacles)
 	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
 	m_body = physics->createRigidBody(80.0f, capsule, vector3df(0, 0, 0));
 	m_body->setAngularFactor(btVector3(0, 0, 0));

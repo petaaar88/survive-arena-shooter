@@ -17,20 +17,17 @@ Pickup::Pickup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 	, m_respawnTimer(0.0f)
 	, m_spawnPos(position)
 {
-	// Visual: small cube floating above ground
 	ISceneNode* cube = smgr->addCubeSceneNode(PICKUP_VISUAL_SIZE);
 	if (cube)
 	{
 		cube->setPosition(vector3df(position.X, position.Y + PICKUP_HOVER_HEIGHT, position.Z));
 		cube->setMaterialFlag(EMF_LIGHTING, false);
 
-		// Yellow/orange color for ammo
 		cube->setMaterialTexture(0, driver->getTexture("assets/textures/hud/bullet_icon.png"));
 		cube->setMaterialFlag(EMF_FOG_ENABLE, true);
 	}
 	m_node = cube;
 
-	// Ghost trigger for overlap detection
 	m_triggerShape = new btSphereShape(PICKUP_TRIGGER_RADIUS);
 	m_trigger = new btGhostObject();
 	m_trigger->setCollisionShape(m_triggerShape);
@@ -62,7 +59,6 @@ void Pickup::update(f32 deltaTime)
 	if (m_collected)
 		return;
 
-	// Rotate the pickup visually
 	if (m_node)
 	{
 		vector3df rot = m_node->getRotation();

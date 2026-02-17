@@ -28,8 +28,6 @@ Powerup::Powerup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 	, m_lifetime(0.0f)
 	, m_spawnPos(position)
 {
-	// Visual: flat plane with texture on both sides
-	// Create a plane mesh using Irrlicht's built-in mesh tools
 	IMesh* planeMesh = smgr->getGeometryCreator()->createPlaneMesh(
 		dimension2d<f32>(POWERUP_VISUAL_SIZE, POWERUP_VISUAL_SIZE), dimension2d<u32>(1, 1));
 
@@ -47,14 +45,11 @@ Powerup::Powerup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 			planeNode->setMaterialTexture(0, driver->getTexture(getTextureForType(type)));
 			planeNode->setMaterialType(EMT_TRANSPARENT_ALPHA_CHANNEL);
 
-			// Rotate plane to be vertical (default is horizontal/flat on ground)
-			// Use -90 so texture faces right-side up
 			planeNode->setRotation(vector3df(-90, 0, 0));
 		}
 		m_node = planeNode;
 	}
 
-	// Ghost trigger for overlap detection
 	m_triggerShape = new btSphereShape(POWERUP_TRIGGER_RADIUS);
 	m_trigger = new btGhostObject();
 	m_trigger->setCollisionShape(m_triggerShape);
@@ -86,7 +81,6 @@ void Powerup::update(f32 deltaTime)
 	if (m_collected || m_expired)
 		return;
 
-	// Tick lifetime if set
 	if (m_lifetime > 0.0f)
 	{
 		m_lifetime -= deltaTime;

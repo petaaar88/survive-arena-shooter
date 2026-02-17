@@ -52,25 +52,21 @@ private:
 	f32 m_deathTimer;
 	f32 m_painTimer;
 
-	// Gate spawn
 	vector3df m_spawnForward;
 	f32 m_spawnWalkDistance;
 	f32 m_spawnDistanceTraveled;
 	bool m_physicsCreated;
 
-	// Grenade
 	bool m_grenadeActive;
 	ISceneNode* m_grenadeNode;
 	vector3df m_grenadeVelocity;
 
-	// Stuck detection & obstacle avoidance
 	vector3df m_lastCheckedPos;
 	f32       m_stuckTimer;
 	bool      m_isStrafing;
 	f32       m_strafeTimer;
-	f32       m_strafeDirection; // +1 = right, -1 = left
+	f32       m_strafeDirection; 
 
-	// Fog (Irrlicht EFT_FOG_LINEAR)
 	bool m_fogActive;
 	f32 m_fogTimer;
 	f32 m_fogStartDist;

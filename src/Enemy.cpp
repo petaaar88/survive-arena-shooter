@@ -24,7 +24,7 @@ static const f32 SALUTE_DURATION = 2.0f;
 static const f32 SALUTE_COOLDOWN_MIN = 3.0f;
 static const f32 SALUTE_COOLDOWN_MAX = 8.0f;
 
-// Enemy SFX volumes (0.0 = silent, 1.0 = max)
+// (0.0 = silent, 1.0 = max)
 static const f32 ENEMY_SFX_SALUTE_VOLUME = 0.3f;
 static const f32 ENEMY_SFX_ATTACK_VOLUME = 0.5f;
 static const f32 ENEMY_SFX_HURT_VOLUME   = 0.5f;
@@ -124,13 +124,13 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 
 	if (isGateSpawn)
 	{
-		// Gate spawn: no physics yet, walk in first
+		// Gate spawn
 		m_state = EnemyState::SPAWNING;
 		m_rotationY = atan2f(forward.X, forward.Z) * core::RADTODEG;
 	}
 	else
 	{
-		// Normal spawn: create physics immediately
+		// Normal spawn: create physics 
 		createPhysicsBody(spawnPos);
 	}
 }
@@ -193,7 +193,6 @@ void Enemy::updateAttackTrigger()
 	if (!m_attackTrigger || !m_body)
 		return;
 
-	// Compute forward direction from enemy's facing angle
 	f32 yawRad = m_rotationY * core::DEGTORAD;
 	btVector3 forward(sinf(yawRad), 0, cosf(yawRad));
 
@@ -224,7 +223,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		return;
 	}
 
-	// Tick pain animation
 	if (m_isInPain)
 	{
 		m_painTimer -= deltaTime;
@@ -236,14 +234,12 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		}
 		else
 		{
-			// Stop movement during pain
 			if (m_body)
 				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 			return;
 		}
 	}
 
-	// Handle spawning states before physics-dependent code
 	if (m_state == EnemyState::SPAWNING)
 	{
 		f32 step = getSpeed() * deltaTime;
@@ -291,7 +287,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 	case EnemyState::CHASE:
 	{
-		// Salute pause mechanic (balancing when many enemies chase)
 		if (m_isSaluting)
 		{
 			if (m_body)
@@ -330,7 +325,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 		if (m_isStrafing)
 		{
-			// Move perpendicular to player direction
 			moveDir = vector3df(-dir.Z, 0, dir.X) * m_strafeDirection;
 			m_strafeTimer -= deltaTime;
 			if (m_strafeTimer <= 0)
@@ -342,7 +336,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 		}
 		else
 		{
-			// Stuck detection: check if enemy barely moved
 			f32 distMoved = pos.getDistanceFrom(m_lastCheckedPos);
 			if (distMoved < STUCK_DISTANCE_THRESHOLD)
 			{
@@ -351,7 +344,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 				{
 					m_isStrafing = true;
 					m_strafeTimer = STRAFE_DURATION;
-					// Alternate direction: pick based on a simple heuristic
 					m_strafeDirection = (fmodf(pos.X + pos.Z, 2.0f) > 1.0f) ? 1.0f : -1.0f;
 				}
 			}
@@ -362,7 +354,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 			}
 		}
 
-		// Set velocity on Bullet body
 		if (m_body)
 		{
 			f32 speed = getSpeed();
@@ -405,11 +396,9 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 	}
 
 	case EnemyState::WAIT_ATTACK:
-		// Stop movement, stand idle while waiting for attack turn
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 
-		// Face the player while waiting
 		{
 			vector3df dirToPlayer = playerPos - pos;
 			dirToPlayer.Y = 0;
@@ -432,7 +421,6 @@ void Enemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 	case EnemyState::ATTACK:
 		m_attackCooldown -= deltaTime;
 
-		// Stop horizontal movement during attack
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
 
@@ -468,7 +456,6 @@ void Enemy::takeDamage(s32 amount)
 			m_animNode->setLoopMode(false);
 		}
 
-		// Remove physics body and attack trigger so dead enemy doesn't block anything
 		if (m_physicsCreated)
 		{
 			if (m_body)

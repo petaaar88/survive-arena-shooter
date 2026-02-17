@@ -70,20 +70,17 @@ private:
 	btGhostObject* m_attackTrigger;
 	btSphereShape* m_attackShape;
 
-	// Stuck detection & obstacle avoidance
 	vector3df m_lastCheckedPos;
 	f32       m_stuckTimer;
 	bool      m_isStrafing;
 	f32       m_strafeTimer;
-	f32       m_strafeDirection; // +1 = right, -1 = left
+	f32       m_strafeDirection; 
 
-	// Salute pause (balancing mechanic)
 	bool m_isSaluting;
 	f32  m_saluteTimer;
 	f32  m_saluteCooldown;
 	bool m_saluteAllowed;
 
-	// Gate spawn
 	vector3df m_spawnForward;
 	f32 m_spawnWalkDistance;
 	f32 m_spawnDistanceTraveled;
