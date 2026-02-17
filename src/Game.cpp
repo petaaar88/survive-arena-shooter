@@ -747,6 +747,25 @@ void Game::updatePlaying(f32 deltaTime)
 		}
 	}
 
+	// Spawn fog enemy in wave 3 (only one alive at a time)
+	if (m_currentWave >= 3)
+	{
+		bool fogAlive = false;
+		for (FogEnemy* f : m_fogEnemies)
+		{
+			if (!f->isDead())
+			{
+				fogAlive = true;
+				break;
+			}
+		}
+		if (!fogAlive)
+		{
+			int gateIndex = rand() % (int)m_gatePositions.size();
+			spawnFogEnemyAtGate(gateIndex);
+		}
+	}
+
 	// 1. Handle player input (movement + shooting)
 	m_player->handleInput(deltaTime, m_input, m_cameraYaw);
 
@@ -794,6 +813,8 @@ void Game::updatePlaying(f32 deltaTime)
 	// Update enemy AI (sets velocities)
 	for (Enemy* enemy : m_enemies)
 		enemy->updateAI(deltaTime, m_player->getPosition());
+	for (FogEnemy* fogEnemy : m_fogEnemies)
+		fogEnemy->updateAI(deltaTime, m_player->getPosition());
 
 	// Chasing sound: play looping while at least one enemy is chasing
 	{
@@ -831,6 +852,8 @@ void Game::updatePlaying(f32 deltaTime)
 	m_player->update(deltaTime);
 	for (Enemy* enemy : m_enemies)
 		enemy->update(deltaTime);
+	for (FogEnemy* fogEnemy : m_fogEnemies)
+		fogEnemy->update(deltaTime);
 
 	// 5. Check if player's shot hit any enemy
 	btCollisionObject* hitObject = m_player->getLastHitObject();
@@ -844,6 +867,18 @@ void Game::updatePlaying(f32 deltaTime)
 				bool wasDead = enemy->isDead();
 				enemy->takeDamage(25);
 				if (!wasDead && enemy->isDead())
+					m_killCount++;
+				break;
+			}
+		}
+		for (FogEnemy* fogEnemy : m_fogEnemies)
+		{
+			GameObject* hitGameObject = static_cast<GameObject*>(hitObject->getUserPointer());
+			if (hitGameObject == fogEnemy)
+			{
+				bool wasDead = fogEnemy->isDead();
+				fogEnemy->takeDamage(25);
+				if (!wasDead && fogEnemy->isDead())
 					m_killCount++;
 				break;
 			}
@@ -907,6 +942,16 @@ void Game::updatePlaying(f32 deltaTime)
 		{
 			++it;
 		}
+	}
+	for (auto it = m_fogEnemies.begin(); it != m_fogEnemies.end(); )
+	{
+		if ((*it)->shouldRemove())
+		{
+			delete *it;
+			it = m_fogEnemies.erase(it);
+		}
+		else
+			++it;
 	}
 
 	updateCamera();
