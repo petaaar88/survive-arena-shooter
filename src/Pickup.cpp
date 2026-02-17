@@ -26,6 +26,7 @@ Pickup::Pickup(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 
 		// Yellow/orange color for ammo
 		cube->setMaterialTexture(0, driver->getTexture("assets/textures/hud/bullet_icon.png"));
+		cube->setMaterialFlag(EMF_FOG_ENABLE, true);
 	}
 	m_node = cube;
 

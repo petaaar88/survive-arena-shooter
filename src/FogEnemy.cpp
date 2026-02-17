@@ -1,9 +1,10 @@
 #include "FogEnemy.h"
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <vector>
 
-static const f32 MOVEMENT_SPEED = 160.0f;
+static const f32 MOVEMENT_SPEED = 280.0f;
 static const f32 POSITION_THRASHOLD = 25.0f;
 
 static const f32 FOG_ENEMY_SPEED = 160.0f;
@@ -13,12 +14,14 @@ static const f32 FOG_ENEMY_PAIN_DURATION = 0.4f;
 static const f32 MD2_ROTATION_OFFSET = -90.0f;
 static const f32 FALLBACK_DURATION = 2.0f;
 static const f32 THROW_DURATION = 1.5f;
+static const f32 IDLE_DURATION = 2.0f;
 
 // Grenade
 static const f32 GRENADE_SPEED = 300.0f;
 static const f32 GRENADE_GRAVITY = 200.0f;
 static const f32 GRENADE_SPAWN_HEIGHT = 30.0f;
-static const f32 GRENADE_SIZE = 3.0f;
+static const f32 GRENADE_SIZE = 5.0f;
+static const f32 THROWING_SOUND_VOLUME = 0.5f;
 
 // Fog (Irrlicht EFT_FOG_LINEAR)
 static const f32 FOG_DURATION = 10.0f;
@@ -84,6 +87,8 @@ FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 			m_animNode->setMaterialTexture(0, driver->getTexture("assets/models/fog_enemy/default.pcx"));
 			m_animNode->setMaterialFlag(EMF_LIGHTING, false);
 			m_animNode->setMaterialFlag(EMF_FOG_ENABLE, true);
+			m_animNode->setScale(vector3df(1.7f, 1.7f, 1.7f));
+			m_animNode->setAnimationSpeed(24.0f);
 			m_animNode->setPosition(spawnPos);
 			m_animNode->setMD2Animation(EMAT_RUN);
 		}
@@ -96,7 +101,7 @@ FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 void FogEnemy::createPhysicsBody(const vector3df& pos)
 {
 	btCapsuleShape* capsule = new btCapsuleShape(15.0f, 30.0f);
-	m_body = m_physics->createRigidBody(10.0f, capsule, pos);
+	m_body = m_physics->createRigidBody(70.0f, capsule, pos);
 	m_body->setAngularFactor(btVector3(0, 0, 0));
 	m_body->setActivationState(DISABLE_DEACTIVATION);
 	m_body->setUserPointer(this);
@@ -235,8 +240,11 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 
 
-			//TODO: make it random
-			m_currentRepositionIndex = 1;
+			int newIndex;
+			do {
+				newIndex = rand() % recoveringPositions.size();
+			} while (newIndex == m_currentRepositionIndex);
+			m_currentRepositionIndex = newIndex;
 			m_state = FogEnemyState::REPOSITION;
 			
 		}
@@ -245,9 +253,27 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 	case FogEnemyState::IDLE:
 	{
-		
 		if (m_body)
 			m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
+
+		// Rotate towards center (0, 0, 0)
+		vector3df pos = getPosition();
+		vector3df toCenter = vector3df(0, 0, 0) - pos;
+		toCenter.Y = 0;
+		if (toCenter.getLength() > 0)
+			m_rotationY = atan2f(toCenter.X, toCenter.Z) * core::RADTODEG;
+
+		m_stateTimer -= deltaTime;
+		if (m_stateTimer <= 0 && !m_fogActive)
+		{
+			m_state = FogEnemyState::FALLBACK;
+			m_stateTimer = FALLBACK_DURATION;
+			if (m_animNode)
+			{
+				m_animNode->setMD2Animation(EMAT_FALLBACK);
+				m_animNode->setLoopMode(false);
+			}
+		}
 		break;
 	}
 
@@ -311,15 +337,13 @@ void FogEnemy::updateAI(f32 deltaTime, const vector3df& playerPos)
 
 		if (distToPosition < POSITION_THRASHOLD)
 		{
-			
 			m_state = FogEnemyState::IDLE;
+			m_stateTimer = IDLE_DURATION;
 			m_isStrafing = false;
 			m_stuckTimer = 0.0f;
 			if (m_animNode) m_animNode->setMD2Animation(EMAT_STAND);
 			if (m_body)
 				m_body->setLinearVelocity(btVector3(0, m_body->getLinearVelocity().getY(), 0));
-
-			m_state = FogEnemyState::IDLE;
 		}
 
 		break;
@@ -373,6 +397,16 @@ void FogEnemy::spawnGrenade()
 {
 	if (!m_smgr || m_grenadeActive)
 		return;
+
+	if (m_soundEngine)
+	{
+		irrklang::ISound* snd = m_soundEngine->play2D("assets/audio/fog enemy/throwing.mp3", false, false, true);
+		if (snd)
+		{
+			snd->setVolume(THROWING_SOUND_VOLUME);
+			snd->drop();
+		}
+	}
 
 	vector3df pos = getPosition();
 	pos.Y += GRENADE_SPAWN_HEIGHT;
