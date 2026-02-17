@@ -52,7 +52,7 @@ Game::Game()
 	, m_killText(nullptr)
 	, m_killCount(0)
 	, m_moneyText(nullptr)
-	, m_money(1000)
+	, m_money(0)
 	, m_powerupIcons{nullptr, nullptr, nullptr}
 	, m_powerupTimers{nullptr, nullptr, nullptr}
 	, m_powerupTextures{nullptr, nullptr, nullptr}
@@ -90,12 +90,15 @@ Game::Game()
 	, m_centerY(0)
 	, m_soundEngine(nullptr)
 	, m_chasingSound(nullptr)
+	, m_clickSoundSrc(nullptr)
 	, m_gameTimer(GAME_DURATION)
 	, m_spawnTimer(0.0f)
 	, m_currentWave(1)
 	, m_powerupSpawnedWave{false, false, false}
 {
 	m_soundEngine = irrklang::createIrrKlangDevice();
+	if (m_soundEngine)
+		m_clickSoundSrc = m_soundEngine->addSoundSourceFromFile("assets/audio/button/click.mp3", irrklang::ESM_AUTO_DETECT, true);
 	init();
 }
 
@@ -1532,8 +1535,8 @@ bool Game::isClickInRect(const rect<s32>& r) const
 
 void Game::playClickSound()
 {
-	if (m_soundEngine)
-		m_soundEngine->play2D("assets/audio/button/click.mp3");
+	if (m_soundEngine && m_clickSoundSrc)
+		m_soundEngine->play2D(m_clickSoundSrc);
 }
 
 bool Game::isCursorInRect(const rect<s32>& r) const
@@ -1648,7 +1651,7 @@ void Game::updateMenu()
 					if (font)
 					{
 						font->draw(L"Loading...",
-							rect<s32>(30, ss.Height - 60, 300, ss.Height - 20),
+							rect<s32>(ss.Width - 300, ss.Height - 60, ss.Width - 30, ss.Height - 20),
 							SColor(255, 255, 255, 255), false, false);
 					}
 					m_driver->endScene();

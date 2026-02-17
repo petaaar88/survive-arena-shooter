@@ -121,6 +121,7 @@ private:
 	// Enemy audio
 	irrklang::ISoundEngine* m_soundEngine;
 	irrklang::ISound*       m_chasingSound;
+	irrklang::ISoundSource* m_clickSoundSrc;
 
 	// Menu textures
 	ITexture* m_menuBgTex;
