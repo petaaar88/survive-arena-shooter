@@ -90,6 +90,8 @@ FogEnemy::FogEnemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics,
 			m_animNode->setAnimationSpeed(24.0f);
 			m_animNode->setPosition(spawnPos);
 			m_animNode->setMD2Animation(EMAT_RUN);
+
+			m_animNode->addShadowVolumeSceneNode();
 		}
 	}
 

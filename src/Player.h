@@ -58,9 +58,11 @@ private:
 	void updateAnimation(bool moving);
 
 	ISceneManager* m_smgr;
+	IVideoDriver* m_driver;
 	Physics* m_physics;
 	IAnimatedMeshSceneNode* m_playerNode;
 	IAnimatedMeshSceneNode* m_weaponNode;
+	ISceneNode* m_shadowNode;
 
 	f32 m_rotationY;
 	vector3df m_forward;

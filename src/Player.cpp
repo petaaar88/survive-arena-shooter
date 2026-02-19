@@ -49,6 +49,7 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 	, m_soundEngine(nullptr)
 	, m_runSound(nullptr)
 {
+	m_driver = driver;
 	m_soundEngine = irrklang::createIrrKlangDevice();
 	IAnimatedMesh* playerMesh = smgr->getMesh("assets/models/player/tris.md2");
 	if (playerMesh)
@@ -62,6 +63,36 @@ Player::Player(ISceneManager* smgr, IVideoDriver* driver, Physics* physics)
 			m_playerNode->setPosition(vector3df(0, 0, 0));
 			m_playerNode->setMD2Animation(EMAT_STAND);
 		}
+	}
+
+	// Create blob shadow: a dark circle texture on a flat plane under the player
+	{
+		const s32 texSize = 64;
+		IImage* img = driver->createImage(ECF_A8R8G8B8, dimension2d<u32>(texSize, texSize));
+		const f32 center = texSize / 2.0f;
+		const f32 radius = center - 1.0f;
+		for (s32 y = 0; y < texSize; ++y)
+			for (s32 x = 0; x < texSize; ++x)
+			{
+				f32 dx = x - center, dy = y - center;
+				f32 dist = sqrtf(dx * dx + dy * dy) / radius;
+				u32 alpha = (dist < 1.0f) ? (u32)(120.0f * (1.0f - dist * dist)) : 0;
+				img->setPixel(x, y, SColor(alpha, 0, 0, 0));
+			}
+		ITexture* shadowTex = driver->addTexture("player_blob_shadow", img);
+		img->drop();
+
+		IMesh* planeMesh = smgr->getGeometryCreator()->createPlaneMesh(
+			dimension2d<f32>(40.0f, 40.0f), dimension2d<u32>(1, 1));
+		m_shadowNode = smgr->addMeshSceneNode(planeMesh);
+		planeMesh->drop();
+
+		m_shadowNode->setMaterialTexture(0, shadowTex);
+		m_shadowNode->setMaterialType(EMT_TRANSPARENT_ALPHA_CHANNEL);
+		m_shadowNode->setMaterialFlag(EMF_LIGHTING, false);
+		m_shadowNode->setMaterialFlag(EMF_BACK_FACE_CULLING, false);
+		m_shadowNode->setMaterialFlag(EMF_ZBUFFER, false);
+		m_shadowNode->setMaterialFlag(EMF_ZWRITE_ENABLE, false);
 	}
 
 	IAnimatedMesh* weaponMesh = smgr->getMesh("assets/models/player/weapon.md2");
@@ -148,6 +179,13 @@ void Player::update(f32 deltaTime)
 
 	if (m_playerNode)
 		m_playerNode->setRotation(vector3df(0, m_rotationY + MD2_ROTATION_OFFSET, 0));
+
+	// Update blob shadow position on the ground
+	if (m_shadowNode)
+	{
+		vector3df pos = getPosition();
+		m_shadowNode->setPosition(vector3df(pos.X, -24.0f, pos.Z));
+	}
 
 	// Tick powerup timers
 	if (m_speedBoost)

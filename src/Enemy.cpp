@@ -117,6 +117,8 @@ Enemy::Enemy(ISceneManager* smgr, IVideoDriver* driver, Physics* physics, const 
 				m_animNode->setMD2Animation(EMAT_RUN);
 			else
 				m_animNode->setMD2Animation(EMAT_STAND);
+
+			m_animNode->addShadowVolumeSceneNode();
 		}
 	}
 

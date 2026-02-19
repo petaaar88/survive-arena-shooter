@@ -140,8 +140,8 @@ Game::~Game()
 
 void Game::init()
 {
-	m_device = createDevice(video::EDT_DIRECT3D9, dimension2d<u32>(1300, 780), 16,
-		false, false, false, &m_input);
+	m_device = createDevice(video::EDT_DIRECT3D9, dimension2d<u32>(1300, 780), 32,
+		false, true, false, &m_input);
 
 	if (!m_device)
 		return;
@@ -403,8 +403,9 @@ void Game::setupScene()
 	wallSide2X->getMotionState()->setWorldTransform(tr2);
 	wallSide2X->setWorldTransform(tr2);
 
-	m_smgr->addLightSceneNode(0, vector3df(0, 200, 0), SColorf(1.0f, 1.0f, 1.0f), 800.0f);
+	m_smgr->addLightSceneNode(0, vector3df(0, 500, 0), SColorf(1.0f, 1.0f, 1.0f), 1500.0f);
 	m_smgr->setAmbientLight(SColorf(0.3f, 0.3f, 0.3f));
+	m_smgr->setShadowColor(video::SColor(150, 0, 0, 0));
 
 
 	m_mapNode = m_smgr->addMeshSceneNode(m_smgr->getMesh("assets/maps/colloseum/Colloseum.obj"));
@@ -710,14 +711,17 @@ void Game::run()
 
 		// Render
 		SColor clearColor(0, 0, 0, 0);
+		bool fogActive = false;
 		for (FogEnemy* f : m_fogEnemies)
 		{
 			if (f->isFogActive())
 			{
 				clearColor = SColor(255, 180, 180, 180);
+				fogActive = true;
 				break;
 			}
 		}
+		m_smgr->setShadowColor(fogActive ? SColor(0, 0, 0, 0) : SColor(150, 0, 0, 0));
 		m_driver->beginScene(true, true, clearColor);
 
 		if (m_state == GameState::MENU)
