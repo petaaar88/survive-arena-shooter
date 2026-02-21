@@ -614,7 +614,7 @@ void Game::setupHUD()
 		dimension2d<u32> screenSize = m_driver->getScreenSize();
 		s32 screenCX = screenSize.Width / 2;
 		s32 screenCY = screenSize.Height / 2;
-		s32 crosshairSize = 32;
+		s32 crosshairSize = 70;
 		s32 cx = screenCX - crosshairSize / 2;
 		s32 cy = screenCY - crosshairSize / 2;
 		crosshair = m_gui->addImage(crosshairTex, position2d<s32>(cx, cy));
