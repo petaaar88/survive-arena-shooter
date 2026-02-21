@@ -5,7 +5,7 @@
 bin/
 build/
 intermidiate/
-libs/bullet3/
+
 conversations/
 # User-specific files
 *.rsuser
