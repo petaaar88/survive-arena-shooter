@@ -336,6 +336,12 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 
+  # Allow irrKlang binaries                                                                                                                                                                                                  !libs/irrKlang/bin/                                                                                                                                                                                                        !libs/irrKlang/bin/*                                                                                                                                                                                                       !libs/irrKlang/lib/                                                                                                                                                                                                      
+  !libs/irrKlang/lib/x64/
+  !libs/irrKlang/lib/x64/*
+  !libs/irrKlang/lib/x86/
+  !libs/irrKlang/lib/x86/*
+
 # OpenCover UI analysis results
 OpenCover/
 
@@ -365,3 +371,19 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Allow irrKlang binaries
+!libs/irrKlang/bin/
+!libs/irrKlang/bin/*
+!libs/irrKlang/lib/
+!libs/irrKlang/lib/x64/
+!libs/irrKlang/lib/x64/*
+!libs/irrKlang/lib/x86/
+!libs/irrKlang/lib/x86/*
+
+# Allow bullet3 libraries
+!libs/bullet3/lib/
+!libs/bullet3/lib/Debug/
+!libs/bullet3/lib/Debug/*
+!libs/bullet3/lib/Release/
+!libs/bullet3/lib/Release/*
